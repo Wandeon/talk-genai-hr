@@ -154,6 +154,30 @@ describe('LLMClient', () => {
       expect(tokens).toEqual(['First', ' Second']);
     });
 
+    it('should handle chunk ending with newline', async () => {
+      const messages = [{ role: 'user', content: 'Test' }];
+      const tokens = [];
+      const onToken = jest.fn((token) => tokens.push(token));
+
+      const mockStream = new EventEmitter();
+      const mockResponse = { data: mockStream };
+      axios.post.mockResolvedValue(mockResponse);
+
+      const streamPromise = client.streamChat(messages, onToken);
+
+      setImmediate(() => {
+        // Chunk ending with newline should leave buffer empty
+        mockStream.emit('data', Buffer.from('{"message":{"content":"First"}}\n'));
+        mockStream.emit('data', Buffer.from('{"message":{"content":" Second"}}\n'));
+        mockStream.emit('data', Buffer.from('{"done":true}\n'));
+        mockStream.emit('end');
+      });
+
+      await streamPromise;
+
+      expect(tokens).toEqual(['First', ' Second']);
+    });
+
     it('should ignore invalid JSON chunks', async () => {
       const messages = [{ role: 'user', content: 'Test' }];
       const tokens = [];
@@ -204,7 +228,7 @@ describe('LLMClient', () => {
 
       await expect(client.streamChat(messages, onToken))
         .rejects
-        .toThrow('LLM streaming failed: Network error');
+        .toThrow('LLM service error: Network error');
     });
 
     it('should handle API error responses with status code', async () => {
@@ -311,7 +335,7 @@ describe('LLMClient', () => {
 
       await expect(client.analyzeImage(imageBase64, prompt))
         .rejects
-        .toThrow('LLM image analysis failed: Analysis failed');
+        .toThrow('LLM service error: Analysis failed');
     });
 
     it('should handle API error responses', async () => {
@@ -367,7 +391,7 @@ describe('LLMClient', () => {
 
       await expect(client.checkHealth())
         .rejects
-        .toThrow('LLM health check failed: Service unavailable');
+        .toThrow('LLM service error: Service unavailable');
     });
 
     it('should handle health check with error response', async () => {
@@ -395,7 +419,7 @@ describe('LLMClient', () => {
 
       await expect(client.checkHealth())
         .rejects
-        .toThrow('LLM health check unreachable: ETIMEDOUT');
+        .toThrow('LLM service unreachable: ETIMEDOUT');
     });
   });
 });

@@ -36,6 +36,21 @@ class LLMClient {
       return new Promise((resolve, reject) => {
         const stream = response.data;
         let buffer = '';
+        let resolved = false;
+
+        const safeResolve = () => {
+          if (!resolved) {
+            resolved = true;
+            resolve();
+          }
+        };
+
+        const safeReject = (error) => {
+          if (!resolved) {
+            resolved = true;
+            reject(error);
+          }
+        };
 
         stream.on('data', (chunk) => {
           buffer += chunk.toString();
@@ -65,7 +80,7 @@ class LLMClient {
 
               // Check if done
               if (data.done) {
-                resolve();
+                safeResolve();
               }
             } catch (parseError) {
               // Ignore JSON parse errors for partial chunks
@@ -75,11 +90,11 @@ class LLMClient {
         });
 
         stream.on('end', () => {
-          resolve();
+          safeResolve();
         });
 
         stream.on('error', (error) => {
-          reject(error);
+          safeReject(error);
         });
       });
     } catch (error) {
@@ -93,7 +108,7 @@ class LLMClient {
         throw new Error(`LLM service unreachable: ${error.message}`);
       } else {
         // Error setting up request
-        throw new Error(`LLM streaming failed: ${error.message}`);
+        throw new Error(`LLM service error: ${error.message}`);
       }
     }
   }
@@ -137,7 +152,7 @@ class LLMClient {
         throw new Error(`LLM service unreachable: ${error.message}`);
       } else {
         // Error setting up request
-        throw new Error(`LLM image analysis failed: ${error.message}`);
+        throw new Error(`LLM service error: ${error.message}`);
       }
     }
   }
@@ -167,10 +182,10 @@ class LLMClient {
         );
       } else if (error.request) {
         // Request made but no response
-        throw new Error(`LLM health check unreachable: ${error.message}`);
+        throw new Error(`LLM service unreachable: ${error.message}`);
       } else {
         // Error setting up request
-        throw new Error(`LLM health check failed: ${error.message}`);
+        throw new Error(`LLM service error: ${error.message}`);
       }
     }
   }
