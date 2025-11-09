@@ -1,0 +1,413 @@
+/* ServiceStatus Component Styles */
+
+.service-status {
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+/* Header */
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 12px;
+}
+
+.status-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+/* Last Updated Timestamp */
+.last-updated {
+  font-size: 12px;
+  color: #666;
+  font-weight: 400;
+}
+
+/* Toggle Button */
+.toggle-button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  color: #666;
+  transition: color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 4px;
+}
+
+.toggle-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+.toggle-button:active {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Content Area */
+.status-content {
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+
+.status-content.error-state {
+  padding: 12px;
+  background-color: #fff3cd;
+  border-radius: 4px;
+  border-left: 4px solid #ff9800;
+}
+
+.status-content.collapsed {
+  padding: 8px 0;
+}
+
+/* Loading Message */
+.loading-message {
+  margin: 12px 0;
+  color: #666;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* Error Message */
+.error-message {
+  margin: 0 0 12px 0;
+  color: #d32f2f;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.error-message-small {
+  margin: 8px 0;
+  color: #d32f2f;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+/* Service List */
+.service-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: opacity 0.3s ease;
+}
+
+.service-list.expanded {
+  opacity: 1;
+}
+
+.service-list.collapsed {
+  opacity: 0.7;
+}
+
+/* Service Item */
+.service-item {
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.service-item:hover {
+  border-color: #bbb;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Service Indicator Row */
+.service-indicator-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Status Indicator Dot */
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 0 0 transparent;
+}
+
+.status-indicator.online {
+  background-color: #4caf50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.status-indicator.offline {
+  background-color: #f44336;
+  box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.1);
+}
+
+.status-indicator.unknown {
+  background-color: #9e9e9e;
+  box-shadow: 0 0 0 3px rgba(158, 158, 158, 0.1);
+}
+
+/* Pulsing animation for online services */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(76, 175, 80, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
+
+.status-indicator.online:after {
+  content: '';
+}
+
+/* Service Name */
+.service-name {
+  font-weight: 600;
+  color: #333;
+  min-width: 50px;
+  font-size: 13px;
+}
+
+/* Status Text */
+.status-text {
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.status-text.online {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-text.offline {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.status-text.unknown {
+  background-color: #f5f5f5;
+  color: #616161;
+}
+
+/* Service URL */
+.service-url {
+  font-size: 12px;
+  color: #666;
+  word-break: break-all;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
+  background-color: #fafafa;
+  padding: 4px 8px;
+  border-radius: 3px;
+  border-left: 2px solid #ddd;
+  padding-left: 8px;
+}
+
+/* Collapsed Indicator */
+.collapsed-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.status-summary {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Retry Buttons */
+.retry-button,
+.retry-button-small {
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retry-button:hover,
+.retry-button-small:hover {
+  background-color: #1976d2;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
+}
+
+.retry-button:active,
+.retry-button-small:active {
+  background-color: #1565c0;
+}
+
+.retry-button-small {
+  padding: 4px 12px;
+  font-size: 12px;
+}
+
+/* Status Footer */
+.status-footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+  .service-status {
+    padding: 12px;
+    margin: 12px 0;
+  }
+
+  .status-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .header-left {
+    width: 100%;
+  }
+
+  .toggle-button {
+    align-self: flex-end;
+  }
+
+  .status-header h3 {
+    font-size: 14px;
+  }
+
+  .service-item {
+    padding: 10px;
+  }
+
+  .service-indicator-row {
+    flex-wrap: wrap;
+  }
+
+  .status-text {
+    margin-left: 0;
+  }
+
+  .service-url {
+    font-size: 11px;
+  }
+
+  .status-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .retry-button-small {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* Dark mode support (if needed) */
+@media (prefers-color-scheme: dark) {
+  .service-status {
+    background-color: #2a2a2a;
+    border-color: #444;
+  }
+
+  .status-header {
+    border-bottom-color: #444;
+  }
+
+  .status-header h3 {
+    color: #f0f0f0;
+  }
+
+  .last-updated {
+    color: #999;
+  }
+
+  .toggle-button {
+    color: #999;
+  }
+
+  .toggle-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #f0f0f0;
+  }
+
+  .service-item {
+    background-color: #3a3a3a;
+    border-color: #444;
+  }
+
+  .service-item:hover {
+    border-color: #666;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  .service-name {
+    color: #f0f0f0;
+  }
+
+  .service-url {
+    background-color: #2a2a2a;
+    color: #999;
+    border-left-color: #444;
+  }
+
+  .status-summary {
+    color: #999;
+  }
+
+  .loading-message {
+    color: #999;
+  }
+
+  .error-message,
+  .error-message-small {
+    color: #ff6b6b;
+  }
+
+  .status-content.error-state {
+    background-color: rgba(255, 152, 0, 0.2);
+    border-left-color: #ff9800;
+  }
+}
