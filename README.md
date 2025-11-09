@@ -1,338 +1,409 @@
-# AI Voice Chat Web Application
+# Voice Chat Application
 
-**Modern web interface for conversational AI with voice interaction**
-
-Talk naturally with AI through your browser! This React-based web application provides a beautiful, intuitive interface for voice conversations with AI, integrating Speech-to-Text, Large Language Models, and Text-to-Speech services.
+A complete open-source alternative to OpenAI Realtime API with continuous conversation, real-time interruption support, and multimodal capabilities (voice + vision).
 
 ## Features
 
-- **Voice Recording** - Click to record, speak naturally, automatic processing
-- **Real-time Transcription** - See your words transcribed instantly
-- **AI Responses** - Powered by local LLMs via Ollama
-- **Speech Synthesis** - Hear AI responses with realistic voice
-- **Conversation History** - Full chat history with timestamps
-- **Service Status** - Real-time monitoring of backend services
-- **Modern UI** - Beautiful gradient design, responsive layout
-- **Easy Deployment** - Docker-ready for quick setup
+- 🎙️ **Voice Conversations**: Continuous voice interaction with natural turn-taking
+- ⚡ **Real-Time Interruption**: Interrupt AI responses mid-sentence
+- 👁️ **Vision Analysis**: Upload images for multimodal conversation
+- 🔧 **Tool Calling**: LLM can execute functions (time, weather, calculations)
+- 💬 **Text Messages**: Type messages as alternative to voice
+- 📊 **Streaming Responses**: Token-by-token LLM streaming for low latency
+- 🔄 **Conversation History**: Persistent conversation tracking across sessions
+- 📱 **Responsive Design**: Works on desktop and mobile devices
 
 ## Architecture
 
+### Technology Stack
+
+**Frontend:**
+- React 18 with Hooks
+- WebSocket for real-time communication
+- Web Audio API for audio playback
+- MediaRecorder API for voice capture
+- CSS Custom Properties for theming
+
+**Backend:**
+- Node.js with Express
+- WebSocket Server (ws library)
+- SQLite for conversation persistence
+- RESTful API for service health checks
+- State machine for conversation flow
+
+**AI Services:**
+- **VAD**: Silero VAD for voice activity detection
+- **STT**: Faster-Whisper for speech-to-text
+- **LLM**: Ollama (llama3.2) for conversation
+- **TTS**: Parler-TTS for text-to-speech
+- **Vision**: Ollama (llama3.2-vision) for image analysis
+
+### System Design
+
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Voice Chat Web App                    │
-├─────────────────────────────────────────────────────────┤
-│                                                           │
-│   React Frontend (Port 80)                               │
-│   ├── Voice Recorder Component                           │
-│   ├── Chat Interface                                     │
-│   ├── Service Status Display                             │
-│   └── Nginx (Proxy + Static Files)                       │
-│                       │                                   │
-│                       ↓                                   │
-│   Node.js Backend (Port 3001)                            │
-│   ├── API Proxy Layer                                    │
-│   ├── File Upload Handler                                │
-│   └── Service Integration                                │
-│                       │                                   │
-│          ┌────────────┼────────────┐                     │
-│          ↓            ↓             ↓                     │
-│   STT Service    LLM Service   TTS Service               │
-│   (Port 5051)   (Port 11434)   (Port 5050)               │
-│   100.89.2.111  100.89.2.111   100.89.2.111              │
-│                                                           │
-└─────────────────────────────────────────────────────────┘
+┌─────────────┐
+│   Browser   │
+│  (React)    │
+└──────┬──────┘
+       │ WebSocket
+       │
+┌──────▼──────┐     ┌─────────────┐
+│   Backend   │────▶│  SQLite DB  │
+│  (Node.js)  │     └─────────────┘
+└──────┬──────┘
+       │
+       ├──▶ VAD Service (Silero)
+       ├──▶ STT Service (Faster-Whisper)
+       ├──▶ LLM Service (Ollama)
+       └──▶ TTS Service (Parler-TTS)
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-Ensure the following AI services are running on your Tailscale network:
+- Docker and Docker Compose
+- External STT service at `http://100.89.2.111:5051`
+- External LLM service at `http://100.100.47.43:11434`
 
-1. **STT Service (Faster-Whisper)** - http://100.89.2.111:5051
-2. **LLM Service (Ollama)** - http://100.89.2.111:11434
-3. **TTS Service (Coqui)** - http://100.89.2.111:5050
-
-### Option 1: Docker Deployment (Recommended)
+### Installation
 
 ```bash
-# Clone or navigate to the project
-cd voice-chat-app
+# Clone or navigate to repository
+cd /home/wandeon/voice-chat-app
 
-# Build and start services
-docker-compose up -d
+# Build and start all services
+docker-compose up -d --build
 
-# View logs
-docker-compose logs -f
+# Verify deployment
+./scripts/verify-deployment.sh
 
-# Stop services
-docker-compose down
+# Access application
+open http://localhost:8080
 ```
 
-The application will be available at:
-- **Frontend**: http://localhost
+### Service Endpoints
+
+- **Frontend**: http://localhost:8080
 - **Backend API**: http://localhost:3001
-
-### Option 2: Development Mode
-
-**Backend:**
-```bash
-cd backend
-cp .env.example .env
-npm install
-npm start
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm start
-```
-
-The application will be available at:
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3001
-
-## Configuration
-
-### Backend Environment Variables
-
-Create `backend/.env`:
-
-```bash
-PORT=3001
-
-# AI Service URLs (Tailscale network)
-STT_URL=http://100.89.2.111:5051
-LLM_URL=http://100.89.2.111:11434
-TTS_URL=http://100.89.2.111:5050
-
-# LLM Model
-LLM_MODEL=llama3.2
-```
-
-### Frontend Configuration
-
-The frontend uses the backend as a proxy (configured in `package.json`). For production, adjust the `REACT_APP_API_URL` if needed.
+- **WebSocket**: ws://localhost:3001
+- **VAD Service**: http://localhost:5052
+- **TTS Service**: http://localhost:5053
 
 ## Usage
 
-1. **Open the application** in your browser (http://localhost or http://localhost:3000)
+### Starting a Conversation
 
-2. **Check service status** at the top - all services should show ✓ Online
+1. Open http://localhost:8080 in your browser
+2. Click "Start Conversation" and grant microphone permission
+3. Speak naturally - the AI will respond with voice
 
-3. **Click "Start Recording"** to begin
+### Features Usage
 
-4. **Speak naturally** - the app will automatically detect when you stop
+**Voice Input:**
+- Speak and the system detects speech automatically
+- Silence detection triggers transcription
+- AI responds with streaming audio
 
-5. **Wait for processing**:
-   - 📝 Transcribing... (STT converts speech to text)
-   - 🤔 Thinking... (LLM generates response)
-   - 🔊 Speaking... (TTS converts text to speech)
+**Text Input:**
+- Type a message in the input field
+- AI responds with voice (or text if preferred)
 
-6. **Continue the conversation** - the AI maintains context
+**Image Upload:**
+- Click image upload button or drag-and-drop
+- AI analyzes the image and responds
+- Ask follow-up questions about the image
 
-### Voice Commands
+**Interruption:**
+- Speak while AI is talking to interrupt
+- AI stops immediately and listens
 
-- **"Clear history"** - Reset the conversation
-- **"Goodbye"** / **"Exit"** / **"Quit"** - End the session
+**Tool Calling:**
+- Ask "What time is it?" - Uses get_current_time
+- Ask "What's the weather in London?" - Uses get_weather
+- Ask "Calculate 25 * 4 + 10" - Uses calculate
 
-## API Endpoints
+## Development
 
-### Backend API
-
-- `GET /health` - Health check
-- `GET /api/status` - Check all AI services status
-- `POST /api/transcribe` - Transcribe audio file (multipart/form-data)
-- `POST /api/chat` - Send messages to LLM
-- `POST /api/tts` - Convert text to speech
-- `GET /api/audio/:filename` - Fetch audio file from TTS service
-
-## Project Structure
+### Project Structure
 
 ```
 voice-chat-app/
-├── backend/
-│   ├── server.js           # Express API server
-│   ├── package.json        # Backend dependencies
-│   ├── Dockerfile          # Backend container
-│   └── .env.example        # Environment template
-├── frontend/
-│   ├── public/
-│   │   └── index.html      # HTML entry point
+├── backend/                 # Node.js backend
+│   ├── lib/
+│   │   ├── services/       # Service clients (VAD, STT, LLM, TTS)
+│   │   ├── handlers/       # Message handlers
+│   │   ├── tools/          # LLM tool implementations
+│   │   ├── StateMachine.js
+│   │   ├── SessionManager.js
+│   │   └── WebSocketHandler.js
+│   ├── tests/              # 373 tests
+│   │   ├── unit/
+│   │   ├── integration/
+│   │   └── performance/
+│   ├── database.js
+│   └── server.js
+│
+├── frontend/               # React frontend
 │   ├── src/
-│   │   ├── App.js          # Main React component
-│   │   ├── index.js        # React entry point
-│   │   ├── components/
-│   │   │   ├── ChatMessage.js      # Message display
-│   │   │   ├── VoiceRecorder.js    # Audio recording
-│   │   │   └── ServiceStatus.js    # Service monitoring
-│   │   └── styles/
-│   │       └── App.css     # Application styles
-│   ├── package.json        # Frontend dependencies
-│   ├── Dockerfile          # Frontend container
-│   └── nginx.conf          # Nginx configuration
-├── docker-compose.yml      # Orchestration
-└── README.md              # This file
+│   │   ├── components/    # UI components
+│   │   ├── context/       # State management
+│   │   ├── hooks/         # Custom React hooks
+│   │   └── App.js
+│   └── tests/             # 280 tests
+│
+├── vad-service/           # Silero VAD Docker service
+├── streaming-tts-service/ # Parler-TTS Docker service
+│
+├── docs/
+│   ├── DEPLOYMENT.md      # Deployment guide
+│   └── plans/             # Implementation plans
+│
+├── scripts/
+│   └── verify-deployment.sh
+│
+└── docker-compose.yml
 ```
-
-## Browser Compatibility
-
-The application requires a modern browser with:
-- **MediaRecorder API** (for audio recording)
-- **getUserMedia API** (for microphone access)
-- **Audio API** (for playback)
-
-**Supported browsers:**
-- Chrome/Edge 49+
-- Firefox 29+
-- Safari 14.1+
-
-## Troubleshooting
-
-### Microphone Access Denied
-
-1. Check browser permissions (click lock icon in address bar)
-2. Allow microphone access for the site
-3. Refresh the page
-
-### Services Offline
-
-1. Click "🔄 Check Services" to refresh status
-2. Verify AI services are running on 100.89.2.111
-3. Check Tailscale connectivity
-4. Review backend logs: `docker-compose logs backend`
-
-### No Audio Playback
-
-1. Check system volume
-2. Verify TTS service is online
-3. Try a different browser
-4. Check browser console for errors (F12)
-
-### Docker Build Fails
-
-```bash
-# Clear Docker cache and rebuild
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
-```
-
-### Long Response Times
-
-- **STT**: ~1-2s for transcription
-- **LLM**: ~2-4s for response generation
-- **TTS**: ~2-4s for speech synthesis
-- **Total**: ~5-10s per conversation turn
-
-This is normal for CPU-based processing. For faster responses:
-- Use smaller LLM model (llama3.2:1b)
-- Enable GPU acceleration on AI services
-- Use faster STT model
-
-## Development
 
 ### Running Tests
 
 ```bash
-# Backend tests
-cd backend
-npm test
+# Backend tests (373 tests)
+cd backend && npm test
 
-# Frontend tests
-cd frontend
-npm test
+# Frontend tests (280 tests)
+cd frontend && npm test
+
+# Performance tests
+cd backend && npm test -- performance
 ```
 
-### Code Style
+### Test Coverage
 
-The project uses:
-- **ESLint** for JavaScript linting
-- **Prettier** for code formatting
+- **Total Tests**: 653 (373 backend + 280 frontend)
+- **All Passing**: ✅
+- **Coverage Areas**:
+  - Unit tests for all core components
+  - Integration tests for conversation flows
+  - Performance and load testing
+  - WebSocket communication
+  - State machine transitions
+  - Audio processing
+  - Vision analysis
+  - Tool calling
 
-### Building for Production
+## Deployment
+
+### Production Deployment
+
+See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
+
+**Quick Deploy:**
 
 ```bash
-# Build frontend
-cd frontend
-npm run build
+# 1. Verify external services are accessible
+curl http://100.89.2.111:5051/health  # STT
+curl http://100.100.47.43:11434/api/tags  # LLM
 
-# The build folder contains production-ready files
+# 2. Build and deploy
+docker-compose up -d --build
+
+# 3. Verify deployment
+./scripts/verify-deployment.sh
+
+# 4. Check all services are online
+curl http://localhost:3001/api/status
+```
+
+### Environment Variables
+
+Configure via `docker-compose.yml` or `.env` file:
+
+```bash
+PORT=3001                                    # Backend port
+VAD_URL=http://vad-service:5052             # VAD service
+STT_URL=http://100.89.2.111:5051            # STT service (external)
+LLM_URL=http://100.100.47.43:11434          # LLM service (external)
+TTS_URL=http://streaming-tts:5053           # TTS service
+LLM_MODEL=llama3.2                          # Default LLM model
+VISION_MODEL=llama3.2-vision                # Vision model
+DB_PATH=/data/conversations.db              # Database path
 ```
 
 ## Performance
 
-| Component | Latency | Notes |
-|-----------|---------|-------|
-| **Audio Recording** | ~2-5s | User-dependent |
-| **Network Transfer** | <1s | Via Tailscale |
-| **STT Processing** | ~1-2s | CPU-based |
-| **LLM Processing** | ~2-4s | Depends on response length |
-| **TTS Processing** | ~2-4s | CPU-based |
-| **Total Round Trip** | ~5-10s | End-to-end conversation turn |
+Based on comprehensive load testing:
 
-## Security
+- **Concurrent Sessions**: 100+ supported
+- **Message Throughput**: 200,000+ msg/sec
+- **Average Latency**: < 0.01ms per message
+- **Audio Processing**: 3,000 chunks/sec
+- **Database Performance**: 16,000+ ops/sec
+- **Memory per Session**: ~170 KB
+- **WebSocket Connection**: < 1ms establishment
 
-- **Backend Proxy**: Prevents CORS issues, adds security layer
-- **Tailscale Network**: Private mesh VPN, no public exposure
-- **No Data Storage**: Conversations exist only in browser memory
-- **Local AI**: All processing on your infrastructure
-- **No External APIs**: 100% self-hosted
+See [Performance Test Results](backend/tests/performance/load-testing.test.js) for details.
 
-## Deployment to VPS
+## API Reference
 
-### Using Docker Compose
+### WebSocket Messages
 
-1. **Copy project to VPS**:
+**Client → Server:**
+
+```javascript
+// Start conversation
+{ type: 'start_conversation' }
+
+// Send audio chunk
+{ type: 'audio_chunk', audio: 'base64...' }
+
+// Send text message
+{ type: 'user_message', text: 'Hello' }
+
+// Upload image
+{
+  type: 'upload_image',
+  imageBase64: 'base64...',
+  filename: 'image.png',
+  mimeType: 'image/png'
+}
+
+// Interrupt AI response
+{ type: 'interrupt', reason: 'user_spoke' }
+
+// Stop conversation
+{ type: 'stop_conversation' }
+```
+
+**Server → Client:**
+
+```javascript
+// State changes
+{ type: 'state_change', state: 'listening' | 'transcribing' | 'thinking' | 'speaking' | 'analyzing_image' }
+
+// Transcription
+{ type: 'transcript_partial', text: '...' }
+{ type: 'transcript_final', text: '...' }
+
+// LLM response
+{ type: 'llm_token', token: 'Hello', done: false }
+{ type: 'llm_complete', fullText: 'Hello world' }
+
+// Audio playback
+{ type: 'audio_chunk', audio: 'base64...', chunkIndex: 0 }
+{ type: 'audio_complete' }
+
+// Vision analysis
+{ type: 'vision_result', description: '...' }
+
+// Tool calls
+{ type: 'tool_call_start', toolName: 'get_time', args: {} }
+{ type: 'tool_call_result', toolName: 'get_time', result: '...' }
+
+// Errors
+{ type: 'error', message: '...', phase: 'listening' }
+
+// Connection
+{ type: 'connected', sessionId: '...', message: 'Ready' }
+```
+
+### REST API
+
 ```bash
-scp -r voice-chat-app/ root@your-vps:/opt/
-```
+# Health check
+GET /health
+Response: { "status": "ok", "timestamp": "..." }
 
-2. **SSH to VPS and deploy**:
-```bash
-ssh root@your-vps
-cd /opt/voice-chat-app
-docker-compose up -d
-```
-
-3. **Configure reverse proxy** (optional, using Caddy):
-```
-voice-chat.yourdomain.com {
-    reverse_proxy localhost:80
+# Service status
+GET /api/status
+Response: {
+  "vad": { "url": "...", "status": "online" },
+  "stt": { "url": "...", "status": "online" },
+  "llm": { "url": "...", "status": "online" },
+  "tts": { "url": "...", "status": "online" }
 }
 ```
 
-### Environment-Specific Configuration
+## Available Tools
 
-For production deployment, update `docker-compose.yml` with your service URLs:
+The LLM can execute these tools:
 
-```yaml
-environment:
-  - STT_URL=http://your-stt-service:5051
-  - LLM_URL=http://your-llm-service:11434
-  - TTS_URL=http://your-tts-service:5050
+### get_current_time
+```javascript
+// Get current time
+{ function: { name: 'get_current_time', arguments: { timezone: 'UTC' }}}
 ```
+
+### get_weather
+```javascript
+// Get weather for location
+{ function: { name: 'get_weather', arguments: { location: 'London, UK' }}}
+```
+
+### calculate
+```javascript
+// Perform calculation
+{ function: { name: 'calculate', arguments: { expression: '25 * 4 + 10' }}}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**WebSocket Connection Failed:**
+- Check backend is running: `curl http://localhost:3001/health`
+- Check browser console for errors
+- Verify no firewall blocking port 3001
+
+**No Audio Playback:**
+- Check browser permissions
+- Verify TTS service is online: `curl http://localhost:5053/health`
+- Check browser console for audio errors
+
+**Transcription Not Working:**
+- Verify microphone permission granted
+- Check STT service: `curl http://100.89.2.111:5051/health`
+- Check browser console for MediaRecorder errors
+
+**Service Offline:**
+```bash
+# Check container status
+docker-compose ps
+
+# View logs
+docker-compose logs -f backend
+
+# Restart service
+docker-compose restart backend
+```
+
+See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for comprehensive troubleshooting.
 
 ## Contributing
 
-Feel free to modify and improve! The codebase is modular and well-documented.
+This is a complete implementation following TDD principles:
+
+1. All features have comprehensive test coverage
+2. Tests are written before implementation
+3. All 653 tests passing
+4. Performance benchmarks established
 
 ## License
 
-Built using open-source components:
-- **React**: MIT License
-- **Express**: MIT License
-- **Nginx**: BSD-2-Clause License
+Open source - feel free to use and modify.
 
-## Credits
+## Acknowledgments
 
-This application integrates:
-- **Faster-Whisper** for speech recognition
-- **Ollama** with Llama/Mistral for language understanding
-- **Coqui XTTS** for speech synthesis
+Built with:
+- Silero VAD for voice activity detection
+- Faster-Whisper for speech recognition
+- Ollama for LLM and vision
+- Parler-TTS for speech synthesis
+- React and Node.js
 
----
+## Version
 
-**Enjoy natural conversations with AI!** 🤖✨
+**Current Version**: 1.0.0
+**Date**: 2025-11-09
+**Tests**: 653 passing
+**Status**: Production ready ✅

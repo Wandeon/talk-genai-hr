@@ -5,11 +5,12 @@ class StateMachine {
 
     // Define valid transitions
     this.transitions = {
-      idle: ['start', 'text_message'],
-      listening: ['silence_detected', 'text_message', 'stop'],
+      idle: ['start', 'text_message', 'image_upload'],
+      listening: ['silence_detected', 'text_message', 'image_upload', 'stop'],
       transcribing: ['transcription_complete', 'stop'],
       thinking: ['llm_complete', 'stop'],
-      speaking: ['audio_complete', 'interrupt', 'stop']
+      speaking: ['audio_complete', 'interrupt', 'stop'],
+      analyzing_image: ['image_analysis_complete', 'stop']
     };
 
     // Define next states
@@ -21,7 +22,9 @@ class StateMachine {
       llm_complete: 'speaking',
       audio_complete: 'listening',
       interrupt: 'listening',
-      stop: 'idle'
+      stop: 'idle',
+      image_upload: 'analyzing_image',
+      image_analysis_complete: 'listening'
     };
   }
 

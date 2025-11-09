@@ -12,9 +12,18 @@ import PhaseIndicator from './components/PhaseIndicator';
 import ServiceStatus from './components/ServiceStatus';
 import './App.css';
 
-// Get WebSocket URL from environment or use default
-const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:3001';
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
+// Get backend and WebSocket URLs dynamically at runtime
+const getBackendUrl = () => {
+  // Use current hostname with port 3001
+  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+  return `${protocol}//${window.location.hostname}:3001`;
+};
+
+const getWebSocketUrl = () => {
+  // Use current hostname with WebSocket protocol
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.hostname}:3001`;
+};
 
 /**
  * Main App Component (Inner)
@@ -180,8 +189,8 @@ function AppInner() {
     [dispatch, playAudioChunk, stopAudio]
   );
 
-  // Initialize WebSocket connection
-  const { isConnected, sendMessage } = useWebSocket(WS_URL, handleWebSocketMessage);
+  // Initialize WebSocket connection (get URL at runtime)
+  const { isConnected, sendMessage } = useWebSocket(getWebSocketUrl(), handleWebSocketMessage);
 
   // Update connection status in context
   useEffect(() => {
@@ -254,7 +263,7 @@ function AppInner() {
         <div className="header-content">
           <h1 className="app-title">Voice Chat App</h1>
           <div className="header-status">
-            <ServiceStatus backendUrl={BACKEND_URL} />
+            <ServiceStatus backendUrl={getBackendUrl()} />
           </div>
         </div>
       </header>
@@ -358,8 +367,8 @@ function AppInner() {
             )}
           </div>
 
-          {/* Audio Recorder */}
-          <div className="audio-recorder-section">
+          {/* Audio Recorder (hidden - runs automatically) */}
+          <div className="audio-recorder-section" style={{ display: 'none' }}>
             <AudioRecorder
               sendAudioChunk={handleSendAudioChunk}
               isListening={state.state === 'listening'}

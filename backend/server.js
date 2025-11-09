@@ -26,6 +26,7 @@ const database = require('./database');
 const { handleAudioChunk: handleAudioChunkWithVAD, cleanupSession } = require('./lib/handlers/audioChunk');
 const { handleTranscription } = require('./lib/handlers/transcription');
 const { handleTextMessage } = require('./lib/handlers/textMessage');
+const { handleImageUpload } = require('./lib/handlers/imageUpload');
 
 // Configuration
 const PORT = process.env.PORT || 3001;
@@ -49,7 +50,8 @@ const wss = new WebSocket.Server({ server });
 app.use(express.json());
 
 // Initialize database
-database.initialize('./conversations.db')
+const DB_PATH = process.env.DB_PATH || './conversations.db';
+database.initialize(DB_PATH)
   .then(() => {
     console.log('Database initialized successfully');
   })
@@ -241,10 +243,17 @@ async function handleInterrupt(session, wsHandler, data) {
 }
 
 async function handleUploadImage(session, wsHandler, data) {
-  console.log(`[Session ${session.id}] Image upload received (stub)`);
+  console.log(`[Session ${session.id}] Image upload received`);
 
-  // TODO: Implement image upload and vision analysis
-  // Should use llmClient.analyzeImage()
+  // Use the image upload handler with vision analysis
+  await handleImageUpload(
+    wsHandler,
+    session,
+    llmClient,
+    data.imageBase64,
+    data.filename,
+    data.mimeType
+  );
 }
 
 async function handleUserMessage(session, wsHandler, data) {

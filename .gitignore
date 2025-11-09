@@ -28,3 +28,7 @@ Thumbs.db
 
 # Docker
 .dockerignore
+*.tar.gz
+frontend/build/
+backend/node_modules/
+frontend/node_modules/
