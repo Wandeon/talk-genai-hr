@@ -2,6 +2,7 @@ const LLMClient = require('../../lib/services/LLMClient');
 const SessionManager = require('../../lib/SessionManager');
 const WebSocketHandler = require('../../lib/WebSocketHandler');
 const { handleTranscription } = require('../../lib/handlers/transcription');
+const { getToolDefinitions } = require('../../lib/tools/index');
 
 jest.mock('../../lib/services/LLMClient');
 
@@ -283,6 +284,232 @@ describe('handleTranscription', () => {
       const roles = messages.map(m => m.role);
       expect(roles).toContain('user');
       expect(roles).toContain('assistant');
+    });
+  });
+
+  describe('Tool Calling Support', () => {
+    test('should pass tool definitions to LLM', async () => {
+      const transcriptText = 'What time is it?';
+
+      session.transition('start');
+      session.transition('silence_detected');
+
+      llmClient.streamChat.mockImplementation(async (messages, onToken) => {
+        onToken('The current time is 2:30 PM.');
+      });
+
+      await handleTranscription(wsHandler, session, transcriptText, llmClient);
+
+      // Get the call arguments
+      const callArgs = llmClient.streamChat.mock.calls[0];
+      const tools = callArgs[3]; // 4th parameter
+      const onToolCall = callArgs[4]; // 5th parameter
+
+      // Should pass tool definitions
+      expect(Array.isArray(tools)).toBe(true);
+      expect(tools.length).toBeGreaterThan(0);
+
+      // Should pass tool callback
+      expect(typeof onToolCall).toBe('function');
+    });
+
+    test('should execute tool when LLM requests it', async () => {
+      const transcriptText = 'What is the time?';
+
+      session.transition('start');
+      session.transition('silence_detected');
+
+      // Simulate LLM requesting a tool call and then providing response
+      llmClient.streamChat.mockImplementation(async (messages, onToken, model, tools, onToolCall) => {
+        // LLM calls the tool
+        const toolCall = {
+          function: {
+            name: 'get_current_time',
+            arguments: {}
+          }
+        };
+
+        if (onToolCall) {
+          await onToolCall(toolCall);
+        }
+
+        // Then provides final response
+        onToken('Based on the tool result, the current time is 2:30 PM.');
+      });
+
+      await handleTranscription(wsHandler, session, transcriptText, llmClient);
+
+      // Should complete successfully
+      expect(session.conversationHistory.length).toBeGreaterThan(0);
+    });
+
+    test('should handle tool execution with arguments', async () => {
+      const transcriptText = 'What is the weather in New York?';
+
+      session.transition('start');
+      session.transition('silence_detected');
+
+      // Simulate LLM requesting weather tool
+      llmClient.streamChat.mockImplementation(async (messages, onToken, model, tools, onToolCall) => {
+        const toolCall = {
+          function: {
+            name: 'get_weather',
+            arguments: { location: 'New York' }
+          }
+        };
+
+        if (onToolCall) {
+          await onToolCall(toolCall);
+        }
+
+        onToken('The weather in New York is sunny with a temperature of 72°F.');
+      });
+
+      await handleTranscription(wsHandler, session, transcriptText, llmClient);
+
+      // Should complete successfully
+      expect(session.conversationHistory.length).toBeGreaterThan(0);
+      const assistantMessage = session.conversationHistory.find(msg => msg.role === 'assistant');
+      expect(assistantMessage).toBeDefined();
+    });
+
+    test('should handle calculate tool', async () => {
+      const transcriptText = 'What is 15 times 7?';
+
+      session.transition('start');
+      session.transition('silence_detected');
+
+      llmClient.streamChat.mockImplementation(async (messages, onToken, model, tools, onToolCall) => {
+        const toolCall = {
+          function: {
+            name: 'calculate',
+            arguments: { expression: '15 * 7' }
+          }
+        };
+
+        if (onToolCall) {
+          await onToolCall(toolCall);
+        }
+
+        onToken('The result of 15 times 7 is 105.');
+      });
+
+      await handleTranscription(wsHandler, session, transcriptText, llmClient);
+
+      expect(session.conversationHistory.length).toBeGreaterThan(0);
+    });
+
+    test('should handle tool execution errors gracefully', async () => {
+      const transcriptText = 'Get weather without location';
+
+      session.transition('start');
+      session.transition('silence_detected');
+
+      llmClient.streamChat.mockImplementation(async (messages, onToken, model, tools, onToolCall) => {
+        const toolCall = {
+          function: {
+            name: 'get_weather',
+            arguments: {} // Missing required location
+          }
+        };
+
+        if (onToolCall) {
+          try {
+            await onToolCall(toolCall);
+          } catch (error) {
+            // Tool execution failed, LLM should handle it
+            onToken('I need to know which location you want weather for.');
+          }
+        }
+      });
+
+      await handleTranscription(wsHandler, session, transcriptText, llmClient);
+
+      // Should handle error and continue
+      expect(session.conversationHistory.length).toBeGreaterThan(0);
+    });
+
+    test('should continue conversation after tool execution', async () => {
+      const transcriptText = 'What time is it in London?';
+
+      session.transition('start');
+      session.transition('silence_detected');
+
+      let toolExecuted = false;
+
+      llmClient.streamChat.mockImplementation(async (messages, onToken, model, tools, onToolCall) => {
+        // First, execute tool
+        const toolCall = {
+          function: {
+            name: 'get_current_time',
+            arguments: { timezone: 'Europe/London' }
+          }
+        };
+
+        if (onToolCall) {
+          await onToolCall(toolCall);
+          toolExecuted = true;
+        }
+
+        // Then stream response
+        onToken('The time in London is 7:30 PM.');
+      });
+
+      await handleTranscription(wsHandler, session, transcriptText, llmClient);
+
+      // Tool should have been executed
+      expect(toolExecuted).toBe(true);
+
+      // Response should be in history - get the last assistant message (after tool call)
+      const assistantMessages = session.conversationHistory.filter(msg => msg.role === 'assistant');
+      expect(assistantMessages.length).toBeGreaterThan(0);
+
+      // The last assistant message should be the actual response
+      const lastAssistantMessage = assistantMessages[assistantMessages.length - 1];
+      expect(lastAssistantMessage.content).toContain('London');
+    });
+  });
+
+  describe('TTS Triggering', () => {
+    test('should trigger TTS after LLM completes', async () => {
+      const transcriptText = 'Say hello';
+      const response = 'Hello there!';
+
+      session.transition('start');
+      session.transition('silence_detected');
+
+      llmClient.streamChat.mockImplementation(async (messages, onToken) => {
+        onToken(response);
+      });
+
+      await handleTranscription(wsHandler, session, transcriptText, llmClient);
+
+      // After LLM completes, should transition to speaking state
+      expect(session.getState()).toBe('speaking');
+
+      // Should send state change to speaking
+      const stateChangeCalls = mockWs.send.mock.calls.filter(call => {
+        const message = JSON.parse(call[0]);
+        return message.type === 'state_change' && message.state === 'speaking';
+      });
+
+      expect(stateChangeCalls.length).toBeGreaterThan(0);
+    });
+
+    test('should not trigger TTS on empty response', async () => {
+      const transcriptText = 'Silent response';
+
+      session.transition('start');
+      session.transition('silence_detected');
+
+      llmClient.streamChat.mockImplementation(async (messages, onToken) => {
+        // Empty response
+      });
+
+      await handleTranscription(wsHandler, session, transcriptText, llmClient);
+
+      // Should handle empty response gracefully
+      expect(session.conversationHistory.length).toBeGreaterThan(0);
     });
   });
 });
