@@ -24,6 +24,8 @@ const database = require('./database');
 
 // Import handlers
 const { handleAudioChunk: handleAudioChunkWithVAD, cleanupSession } = require('./lib/handlers/audioChunk');
+const { handleTranscription } = require('./lib/handlers/transcription');
+const { handleTextMessage } = require('./lib/handlers/textMessage');
 
 // Configuration
 const PORT = process.env.PORT || 3001;
@@ -212,8 +214,20 @@ async function handleStopConversation(session, wsHandler, data) {
 }
 
 async function handleAudioChunk(session, wsHandler, data) {
-  // Use the new VAD-based audio chunk handler
-  await handleAudioChunkWithVAD(wsHandler, session, data.audio, vadClient, sttClient);
+  // Use the new VAD-based audio chunk handler with transcription callback
+  await handleAudioChunkWithVAD(
+    wsHandler,
+    session,
+    data.audio,
+    vadClient,
+    sttClient,
+    3, // Default silence threshold
+    llmClient,
+    // Callback to trigger LLM after transcription
+    async (transcriptText) => {
+      await handleTranscription(wsHandler, session, transcriptText, llmClient);
+    }
+  );
 }
 
 async function handleInterrupt(session, wsHandler, data) {
@@ -234,12 +248,10 @@ async function handleUploadImage(session, wsHandler, data) {
 }
 
 async function handleUserMessage(session, wsHandler, data) {
-  console.log(`[Session ${session.id}] User message received: ${data.text} (stub)`);
+  console.log(`[Session ${session.id}] User message received: ${data.text}`);
 
-  // Add to conversation history
-  session.addMessage('user', data.text);
-
-  // TODO: Implement LLM processing for text-only messages
+  // Use the new text message handler
+  await handleTextMessage(wsHandler, session, data.text, llmClient);
 }
 
 // Start server

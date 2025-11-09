@@ -71,4 +71,15 @@ describe('StateMachine', () => {
   test('should throw error on invalid transition', () => {
     expect(() => sm.transition('invalid')).toThrow();
   });
+
+  test('should transition idle → thinking on text_message', () => {
+    sm.transition('text_message');
+    expect(sm.getState()).toBe('thinking');
+  });
+
+  test('should transition listening → thinking on text_message', () => {
+    sm.transition('start');
+    sm.transition('text_message');
+    expect(sm.getState()).toBe('thinking');
+  });
 });

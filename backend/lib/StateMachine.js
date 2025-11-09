@@ -5,8 +5,8 @@ class StateMachine {
 
     // Define valid transitions
     this.transitions = {
-      idle: ['start'],
-      listening: ['silence_detected', 'stop'],
+      idle: ['start', 'text_message'],
+      listening: ['silence_detected', 'text_message', 'stop'],
       transcribing: ['transcription_complete', 'stop'],
       thinking: ['llm_complete', 'stop'],
       speaking: ['audio_complete', 'interrupt', 'stop']
@@ -17,6 +17,7 @@ class StateMachine {
       start: 'listening',
       silence_detected: 'transcribing',
       transcription_complete: 'thinking',
+      text_message: 'thinking',
       llm_complete: 'speaking',
       audio_complete: 'listening',
       interrupt: 'listening',

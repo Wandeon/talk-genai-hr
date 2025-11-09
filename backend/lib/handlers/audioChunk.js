@@ -20,6 +20,8 @@ const sessionSilenceCounters = new Map();
  * @param {VADClient} vadClient - VAD service client
  * @param {STTClient} sttClient - STT service client
  * @param {number} silenceThreshold - Number of consecutive silence frames to trigger transcription
+ * @param {LLMClient} llmClient - LLM service client (optional)
+ * @param {Function} onTranscriptionComplete - Callback for transcription completion (optional)
  */
 async function handleAudioChunk(
   wsHandler,
@@ -27,7 +29,9 @@ async function handleAudioChunk(
   audioBase64,
   vadClient,
   sttClient,
-  silenceThreshold = DEFAULT_SILENCE_THRESHOLD
+  silenceThreshold = DEFAULT_SILENCE_THRESHOLD,
+  llmClient = null,
+  onTranscriptionComplete = null
 ) {
   try {
     // Validate audio data
@@ -88,7 +92,7 @@ async function handleAudioChunk(
           sessionSilenceCounters.set(session.id, 0);
 
           // Trigger transcription
-          await triggerTranscription(wsHandler, session, sttClient);
+          await triggerTranscription(wsHandler, session, sttClient, llmClient, onTranscriptionComplete);
         }
       }
       // Don't add silence chunks to accumulation
@@ -105,8 +109,10 @@ async function handleAudioChunk(
  * @param {WebSocketHandler} wsHandler - WebSocket handler
  * @param {SessionManager} session - Session manager
  * @param {STTClient} sttClient - STT service client
+ * @param {LLMClient} llmClient - LLM service client (optional, for triggering LLM)
+ * @param {Function} onTranscriptionComplete - Optional callback for transcription completion
  */
-async function triggerTranscription(wsHandler, session, sttClient) {
+async function triggerTranscription(wsHandler, session, sttClient, llmClient = null, onTranscriptionComplete = null) {
   try {
     // Transition to transcribing state
     session.transition('silence_detected');
@@ -129,12 +135,10 @@ async function triggerTranscription(wsHandler, session, sttClient) {
     // Send final transcript to client
     wsHandler.sendTranscriptFinal(transcriptionResult.text);
 
-    // Add to conversation history
-    session.addMessage('user', transcriptionResult.text);
-
-    // TODO: Trigger LLM processing here
-    // For now, just transition back to listening
-    // In full implementation, this would call handleLLMProcessing()
+    // Call callback if provided (for LLM integration)
+    if (onTranscriptionComplete && typeof onTranscriptionComplete === 'function') {
+      await onTranscriptionComplete(transcriptionResult.text);
+    }
 
   } catch (error) {
     console.error(`[Session ${session.id}] Transcription error:`, error.message);
