@@ -1,368 +1,385 @@
-import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import './styles/App.css';
-import ChatMessage from './components/ChatMessage';
-import VoiceRecorder from './components/VoiceRecorder';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { ConversationProvider, useConversation } from './context/ConversationContext';
+import { actions } from './context/conversationReducer';
+import useWebSocket from './hooks/useWebSocket';
+import useAudioPlayer from './hooks/useAudioPlayer';
+import MessageList from './components/MessageList';
+import AudioRecorder from './components/AudioRecorder';
+import AudioPlayer from './components/AudioPlayer';
+import VisionUploader from './components/VisionUploader';
+import ToolCallDisplay from './components/ToolCallDisplay';
+import PhaseIndicator from './components/PhaseIndicator';
 import ServiceStatus from './components/ServiceStatus';
-import ConversationIndicator from './components/ConversationIndicator';
-import ConversationSettings, { getDefaultSettings } from './components/ConversationSettings';
+import './App.css';
 
-const API_BASE = process.env.REACT_APP_API_URL || '';
+// Get WebSocket URL from environment or use default
+const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost:3001';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
-function App() {
-  const [messages, setMessages] = useState([]);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [serviceStatus, setServiceStatus] = useState(null);
-  const [conversationMode, setConversationMode] = useState('idle'); // idle, active, paused
-  const [conversationPhase, setConversationPhase] = useState('idle'); // idle, listening, transcribing, thinking, speaking, paused
-  const [volumeLevel, setVolumeLevel] = useState(0);
-  const [settings, setSettings] = useState(getDefaultSettings());
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [autoStartRecording, setAutoStartRecording] = useState(false);
+/**
+ * Main App Component (Inner)
+ * Contains all the business logic and WebSocket handling
+ */
+function AppInner() {
+  const { state, dispatch } = useConversation();
+  const { playAudioChunk, stop: stopAudio } = useAudioPlayer();
+  const currentLLMResponseRef = useRef('');
 
-  const messagesEndRef = useRef(null);
-  const inactivityTimeoutRef = useRef(null);
-  const lastActivityRef = useRef(Date.now());
+  // WebSocket message handler
+  const handleWebSocketMessage = useCallback(
+    (message) => {
+      console.log('WebSocket message received:', message);
 
-  // Scroll to bottom when messages change
+      switch (message.type) {
+        case 'connected':
+          // Set session ID and connection status
+          if (message.sessionId) {
+            dispatch(actions.setSessionId(message.sessionId));
+          }
+          dispatch(actions.setConnected(true));
+          console.log('Connected to WebSocket with session:', message.sessionId);
+          break;
+
+        case 'state_change':
+          // Update conversation state
+          if (message.state) {
+            dispatch(actions.setState(message.state));
+          }
+          break;
+
+        case 'transcript_partial':
+          // Update current transcript (partial/streaming)
+          if (message.transcript) {
+            dispatch(actions.updateCurrentTranscript(message.transcript));
+          }
+          break;
+
+        case 'transcript_final':
+          // Add user message and clear current transcript
+          if (message.transcript) {
+            const userMessage = {
+              id: `user-${Date.now()}`,
+              role: 'user',
+              content: message.transcript,
+              timestamp: Date.now(),
+              type: 'text',
+            };
+            dispatch(actions.addMessage(userMessage));
+            dispatch(actions.updateCurrentTranscript(''));
+          }
+          break;
+
+        case 'llm_token':
+          // Append token to current LLM response
+          if (message.token) {
+            currentLLMResponseRef.current += message.token;
+            dispatch(actions.updateCurrentLLMResponse(currentLLMResponseRef.current));
+          }
+          break;
+
+        case 'llm_complete':
+          // Add assistant message and clear current LLM response
+          const assistantMessage = {
+            id: `assistant-${Date.now()}`,
+            role: 'assistant',
+            content: message.content || currentLLMResponseRef.current,
+            timestamp: Date.now(),
+            type: 'text',
+          };
+          dispatch(actions.addMessage(assistantMessage));
+          dispatch(actions.updateCurrentLLMResponse(''));
+          currentLLMResponseRef.current = '';
+          break;
+
+        case 'audio_chunk':
+          // Play audio chunk
+          if (message.chunk) {
+            playAudioChunk(message.chunk);
+          }
+          break;
+
+        case 'audio_complete':
+          // Audio playback finished
+          console.log('Audio playback complete');
+          break;
+
+        case 'tool_call_start':
+          // Set active tool
+          if (message.toolName) {
+            dispatch(
+              actions.setActiveTool({
+                toolName: message.toolName,
+                args: message.args || {},
+                status: 'executing',
+              })
+            );
+          }
+          break;
+
+        case 'tool_call_result':
+          // Update tool result
+          if (message.result) {
+            dispatch(actions.updateToolResult(message.result));
+          }
+          // Clear active tool after a delay
+          setTimeout(() => {
+            dispatch(actions.clearActiveTool());
+          }, 3000);
+          break;
+
+        case 'vision_result':
+          // Handle vision analysis result
+          if (message.result) {
+            const visionMessage = {
+              id: `vision-${Date.now()}`,
+              role: 'assistant',
+              content: message.result,
+              timestamp: Date.now(),
+              type: 'text',
+            };
+            dispatch(actions.addMessage(visionMessage));
+          }
+          break;
+
+        case 'interrupted':
+          // Handle interruption
+          dispatch(actions.setInterrupted(true));
+          dispatch(actions.updateCurrentLLMResponse(''));
+          currentLLMResponseRef.current = '';
+          stopAudio();
+          break;
+
+        case 'error':
+          // Display error
+          dispatch(
+            actions.setError({
+              message: message.error || 'An error occurred',
+              phase: message.phase,
+            })
+          );
+          // Add error message to chat
+          const errorMessage = {
+            id: `error-${Date.now()}`,
+            role: 'system',
+            content: `Error: ${message.error || 'An error occurred'}`,
+            timestamp: Date.now(),
+            type: 'error',
+          };
+          dispatch(actions.addMessage(errorMessage));
+          break;
+
+        case 'stop_speaking':
+          // Stop audio playback
+          stopAudio();
+          break;
+
+        default:
+          console.warn('Unknown message type:', message.type);
+      }
+    },
+    [dispatch, playAudioChunk, stopAudio]
+  );
+
+  // Initialize WebSocket connection
+  const { isConnected, sendMessage } = useWebSocket(WS_URL, handleWebSocketMessage);
+
+  // Update connection status in context
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    dispatch(actions.setConnected(isConnected));
+  }, [isConnected, dispatch]);
 
-  // Check service status on mount
-  useEffect(() => {
-    checkServices();
-    const interval = setInterval(checkServices, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Inactivity timeout monitoring
-  useEffect(() => {
-    if (conversationMode === 'active') {
-      startInactivityTimer();
-    } else {
-      clearInactivityTimer();
-    }
-    return () => clearInactivityTimer();
-  }, [conversationMode, conversationPhase]);
-
-  const startInactivityTimer = () => {
-    clearInactivityTimer();
-    inactivityTimeoutRef.current = setTimeout(() => {
-      if (conversationMode === 'active' && conversationPhase === 'listening') {
-        console.log('Inactivity timeout - pausing conversation');
-        pauseConversation();
-      }
-    }, settings.inactivityTimeout * 1000);
-  };
-
-  const clearInactivityTimer = () => {
-    if (inactivityTimeoutRef.current) {
-      clearTimeout(inactivityTimeoutRef.current);
-      inactivityTimeoutRef.current = null;
-    }
-  };
-
-  const resetInactivityTimer = () => {
-    lastActivityRef.current = Date.now();
-    if (conversationMode === 'active') {
-      startInactivityTimer();
-    }
-  };
-
-  const checkServices = async () => {
-    try {
-      const response = await axios.get(`${API_BASE}/api/status`);
-      setServiceStatus(response.data);
-    } catch (error) {
-      console.error('Failed to check services:', error);
-      setServiceStatus(null);
-    }
-  };
-
-  const addMessage = (role, content) => {
-    setMessages(prev => [...prev, { role, content, timestamp: new Date() }]);
-  };
-
-  const startConversation = () => {
-    console.log('Starting conversation mode');
-    setConversationMode('active');
-    setConversationPhase('listening');
-    setAutoStartRecording(true);
-    resetInactivityTimer();
-  };
-
-  const pauseConversation = () => {
-    console.log('Pausing conversation mode');
-    setConversationMode('paused');
-    setConversationPhase('paused');
-    setAutoStartRecording(false);
-    setIsRecording(false);
-    clearInactivityTimer();
-  };
-
-  const resumeConversation = () => {
-    console.log('Resuming conversation mode');
-    setConversationMode('active');
-    setConversationPhase('listening');
-    setAutoStartRecording(true);
-    resetInactivityTimer();
-  };
-
-  const stopConversation = () => {
-    console.log('Stopping conversation mode');
-    setConversationMode('idle');
-    setConversationPhase('idle');
-    setAutoStartRecording(false);
-    setIsRecording(false);
-    clearInactivityTimer();
-  };
-
-  const handleAudioRecorded = async (audioBlob) => {
-    resetInactivityTimer();
-    setIsProcessing(true);
-    setConversationPhase('transcribing');
-    setAutoStartRecording(false);
-
-    try {
-      // 1. Transcribe audio
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.wav');
-      formData.append('language', 'en');
-
-      const transcribeResponse = await axios.post(`${API_BASE}/api/transcribe`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+  // Send audio chunk to backend
+  const handleSendAudioChunk = useCallback(
+    (chunk) => {
+      sendMessage({
+        type: 'audio_chunk',
+        chunk,
       });
+    },
+    [sendMessage]
+  );
 
-      const userText = transcribeResponse.data.text;
-      addMessage('user', userText);
+  // Start conversation
+  const handleStartConversation = useCallback(() => {
+    sendMessage({ type: 'start_conversation' });
+    dispatch(actions.setState('listening'));
+  }, [sendMessage, dispatch]);
 
-      // Check for exit commands
-      const lowerText = userText.toLowerCase();
-      if (lowerText.includes('goodbye') || lowerText.includes('exit') || lowerText.includes('quit')) {
-        const farewell = "Goodbye! It was nice talking to you.";
-        addMessage('assistant', farewell);
-        setConversationPhase('speaking');
-        await speakText(farewell);
-        stopConversation();
-        setIsProcessing(false);
-        return;
-      }
+  // Stop conversation
+  const handleStopConversation = useCallback(() => {
+    sendMessage({ type: 'stop_conversation' });
+    dispatch(actions.setState('idle'));
+  }, [sendMessage, dispatch]);
 
-      // Check for pause commands
-      if (lowerText.includes('pause') || lowerText.includes('stop listening')) {
-        const response = "Conversation paused. Click Resume to continue.";
-        addMessage('assistant', response);
-        setConversationPhase('speaking');
-        await speakText(response);
-        pauseConversation();
-        setIsProcessing(false);
-        return;
-      }
+  // Interrupt (user speaks while AI is speaking)
+  const handleInterrupt = useCallback(() => {
+    sendMessage({ type: 'interrupt' });
+    stopAudio();
+  }, [sendMessage, stopAudio]);
 
-      // Check for clear history
-      if (lowerText.includes('clear history')) {
-        setMessages([]);
-        const response = "Conversation history cleared. Let's start fresh!";
-        addMessage('assistant', response);
-        setConversationPhase('speaking');
-        await speakText(response);
-
-        // Continue conversation if in active mode
-        if (conversationMode === 'active' && settings.autoRestart) {
-          setConversationPhase('listening');
-          setAutoStartRecording(true);
-        }
-
-        setIsProcessing(false);
-        return;
-      }
-
-      // 2. Get LLM response
-      setConversationPhase('thinking');
-
-      const llmMessages = [
-        {
-          role: 'system',
-          content: 'You are a helpful, friendly AI assistant. Keep your responses concise and conversational. Speak naturally as if talking to a friend.'
-        },
-        ...messages.map(m => ({ role: m.role, content: m.content })),
-        { role: 'user', content: userText }
-      ];
-
-      const chatResponse = await axios.post(`${API_BASE}/api/chat`, {
-        messages: llmMessages,
-        model: 'llama3:latest'
+  // Upload image for vision analysis
+  const handleUploadImage = useCallback(
+    async (imageBase64, prompt) => {
+      sendMessage({
+        type: 'upload_image',
+        image: imageBase64,
+        prompt: prompt || 'What do you see in this image?',
       });
+    },
+    [sendMessage]
+  );
 
-      const assistantText = chatResponse.data.message.content;
-      addMessage('assistant', assistantText);
+  // Send text message (for future use)
+  // const handleSendTextMessage = useCallback(
+  //   (text) => {
+  //     sendMessage({
+  //       type: 'user_message',
+  //       message: text,
+  //     });
+  //   },
+  //   [sendMessage]
+  // );
 
-      // 3. Speak response
-      setConversationPhase('speaking');
-      await speakText(assistantText);
-
-      // 4. Auto-restart if in conversation mode
-      if (conversationMode === 'active' && settings.autoRestart) {
-        setConversationPhase('listening');
-        setAutoStartRecording(true);
-      } else {
-        setConversationPhase('idle');
-      }
-
-      setIsProcessing(false);
-    } catch (error) {
-      console.error('Error processing audio:', error);
-      addMessage('system', `Error: ${error.response?.data?.error || error.message}`);
-
-      // Return to listening if in conversation mode
-      if (conversationMode === 'active') {
-        setConversationPhase('listening');
-        setAutoStartRecording(true);
-      } else {
-        setConversationPhase('idle');
-      }
-
-      setIsProcessing(false);
-    }
-  };
-
-  const speakText = async (text) => {
-    try {
-      const response = await axios.post(`${API_BASE}/api/tts`, {
-        text,
-        language: 'en'
-      });
-
-      const audioUrl = response.data.audio_file;
-
-      // Play audio
-      const audio = new Audio(audioUrl);
-      await audio.play();
-
-      // Wait for audio to finish
-      await new Promise((resolve) => {
-        audio.onended = resolve;
-      });
-    } catch (error) {
-      console.error('TTS error:', error);
-      throw error;
-    }
-  };
-
-  const clearHistory = () => {
-    setMessages([]);
-  };
-
-  const handleVolumeChange = (volume) => {
-    setVolumeLevel(volume);
-    resetInactivityTimer();
-  };
+  // Check if conversation is in progress
+  const isConversationActive =
+    state.state === 'listening' ||
+    state.state === 'transcribing' ||
+    state.state === 'thinking' ||
+    state.state === 'speaking';
 
   return (
-    <div className="App">
+    <div className="app">
+      {/* Header */}
       <header className="app-header">
-        <h1>🤖 AI Voice Chat</h1>
-        <ServiceStatus status={serviceStatus} />
+        <div className="header-content">
+          <h1 className="app-title">Voice Chat App</h1>
+          <div className="header-status">
+            <ServiceStatus backendUrl={BACKEND_URL} />
+          </div>
+        </div>
       </header>
 
-      <div className="chat-container">
-        {/* Conversation Indicator */}
-        <ConversationIndicator phase={conversationPhase} volumeLevel={volumeLevel} />
-
-        {/* Conversation Controls */}
-        <div className="conversation-controls">
-          {conversationMode === 'idle' && (
-            <button className="start-conversation-btn" onClick={startConversation}>
-              🎤 Start Conversation
-            </button>
-          )}
-
-          {conversationMode === 'active' && (
-            <>
-              <button className="pause-conversation-btn" onClick={pauseConversation}>
-                ⏸️ Pause
-              </button>
-              <button className="stop-conversation-btn" onClick={stopConversation}>
-                ⏹️ Stop
-              </button>
-            </>
-          )}
-
-          {conversationMode === 'paused' && (
-            <>
-              <button className="resume-conversation-btn" onClick={resumeConversation}>
-                ▶️ Resume
-              </button>
-              <button className="stop-conversation-btn" onClick={stopConversation}>
-                ⏹️ Stop
-              </button>
-            </>
-          )}
-
-          {/* Emergency Stop - Always Visible in Active/Paused Mode */}
-          {(conversationMode === 'active' || conversationMode === 'paused') && (
-            <button className="emergency-stop-btn" onClick={stopConversation}>
-              🚨 Emergency Stop
-            </button>
-          )}
+      {/* Main Content */}
+      <main className="app-main">
+        {/* Phase Indicator */}
+        <div className="phase-section">
+          <PhaseIndicator currentPhase={state.state} />
         </div>
 
-        {/* Settings Panel */}
-        <ConversationSettings
-          settings={settings}
-          onSettingsChange={setSettings}
-          isOpen={settingsOpen}
-          onToggle={() => setSettingsOpen(!settingsOpen)}
-        />
+        {/* Active Tool Display */}
+        {state.activeTool && (
+          <div className="tool-section">
+            <ToolCallDisplay toolCall={state.activeTool} />
+          </div>
+        )}
 
-        {/* Messages */}
-        <div className="messages-container">
-          {messages.length === 0 && (
-            <div className="welcome-message">
-              <h2>Welcome to AI Voice Chat!</h2>
-              <p>Click "Start Conversation" to begin talking with AI.</p>
-              <p>The conversation will automatically continue after each response.</p>
-              <p><strong>Try saying:</strong></p>
-              <ul>
-                <li>"What's the weather like today?"</li>
-                <li>"Tell me a joke"</li>
-                <li>"Pause" - to pause the conversation</li>
-                <li>"Clear history" - to reset conversation</li>
-                <li>"Goodbye" - to end the chat</li>
-              </ul>
+        {/* Error Display */}
+        {state.error && (
+          <div className="error-section" role="alert">
+            <div className="error-content">
+              <span className="error-icon">⚠</span>
+              <span className="error-message">{state.error.message}</span>
+              <button
+                className="error-dismiss"
+                onClick={() => dispatch(actions.clearError())}
+                aria-label="Dismiss error"
+              >
+                ×
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {messages.map((msg, idx) => (
-            <ChatMessage key={idx} message={msg} />
-          ))}
-
-          <div ref={messagesEndRef} />
+        {/* Message List */}
+        <div className="messages-section">
+          <MessageList />
         </div>
 
-        {/* Voice Recorder (hidden, controlled by autoStart) */}
-        <VoiceRecorder
-          onAudioRecorded={handleAudioRecorded}
-          isRecording={isRecording}
-          setIsRecording={setIsRecording}
-          isProcessing={isProcessing}
-          settings={settings}
-          onVolumeChange={handleVolumeChange}
-          autoStart={autoStartRecording}
-        />
-      </div>
+        {/* Audio Player Status */}
+        <div className="audio-player-section">
+          <AudioPlayer />
+        </div>
 
+        {/* Vision Uploader */}
+        <div className="vision-section">
+          <VisionUploader
+            onUpload={handleUploadImage}
+            disabled={!isConnected || isConversationActive}
+          />
+        </div>
+      </main>
+
+      {/* Footer Controls */}
       <footer className="app-footer">
-        <button onClick={clearHistory} className="clear-btn" disabled={isProcessing}>
-          🗑️ Clear History
-        </button>
-        <button onClick={checkServices} className="refresh-btn" disabled={isProcessing}>
-          🔄 Check Services
-        </button>
+        <div className="footer-content">
+          {/* Connection Status */}
+          <div className="connection-status">
+            <span
+              className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}
+            />
+            <span className="status-text">
+              {isConnected ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
+
+          {/* Conversation Controls */}
+          <div className="conversation-controls">
+            {state.state === 'idle' ? (
+              <button
+                className="control-button start-button"
+                onClick={handleStartConversation}
+                disabled={!isConnected}
+                aria-label="Start conversation"
+              >
+                <span className="button-icon">🎤</span>
+                Start Conversation
+              </button>
+            ) : (
+              <>
+                <button
+                  className="control-button interrupt-button"
+                  onClick={handleInterrupt}
+                  disabled={!isConnected || state.state !== 'speaking'}
+                  aria-label="Interrupt"
+                >
+                  <span className="button-icon">✋</span>
+                  Interrupt
+                </button>
+                <button
+                  className="control-button stop-button"
+                  onClick={handleStopConversation}
+                  disabled={!isConnected}
+                  aria-label="Stop conversation"
+                >
+                  <span className="button-icon">⏹</span>
+                  Stop
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Audio Recorder */}
+          <div className="audio-recorder-section">
+            <AudioRecorder
+              sendAudioChunk={handleSendAudioChunk}
+              isListening={state.state === 'listening'}
+            />
+          </div>
+        </div>
       </footer>
     </div>
+  );
+}
+
+/**
+ * Main App Component (Wrapper)
+ * Wraps AppInner with ConversationProvider
+ */
+function App() {
+  return (
+    <ConversationProvider>
+      <AppInner />
+    </ConversationProvider>
   );
 }
 
