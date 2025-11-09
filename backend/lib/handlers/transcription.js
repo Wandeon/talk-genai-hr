@@ -6,6 +6,7 @@
  */
 
 const { getToolDefinitions, executeToolCall } = require('../tools/index');
+const { handleTTSGeneration } = require('./tts');
 
 /**
  * Handle transcribed text and trigger LLM processing
@@ -14,8 +15,9 @@ const { getToolDefinitions, executeToolCall } = require('../tools/index');
  * @param {SessionManager} session - Session manager instance
  * @param {string} transcriptText - Transcribed text from STT
  * @param {LLMClient} llmClient - LLM service client
+ * @param {TTSClient} ttsClient - TTS service client (optional)
  */
-async function handleTranscription(wsHandler, session, transcriptText, llmClient) {
+async function handleTranscription(wsHandler, session, transcriptText, llmClient, ttsClient = null) {
   try {
     // Validate transcript text
     if (!transcriptText || typeof transcriptText !== 'string' || transcriptText.trim() === '') {
@@ -35,7 +37,7 @@ async function handleTranscription(wsHandler, session, transcriptText, llmClient
     console.log(`[Session ${session.id}] Starting LLM processing`);
 
     // Process with LLM
-    await processWithLLM(wsHandler, session, llmClient);
+    await processWithLLM(wsHandler, session, llmClient, ttsClient);
 
   } catch (error) {
     console.error(`[Session ${session.id}] Transcription handling error:`, error.message);
@@ -49,8 +51,9 @@ async function handleTranscription(wsHandler, session, transcriptText, llmClient
  * @param {WebSocketHandler} wsHandler - WebSocket handler
  * @param {SessionManager} session - Session manager
  * @param {LLMClient} llmClient - LLM client
+ * @param {TTSClient} ttsClient - TTS client (optional)
  */
-async function processWithLLM(wsHandler, session, llmClient) {
+async function processWithLLM(wsHandler, session, llmClient, ttsClient = null) {
   try {
     // Get conversation history in LLM format
     const messages = session.conversationHistory.map(msg => ({
@@ -121,61 +124,21 @@ async function processWithLLM(wsHandler, session, llmClient) {
     // Add assistant response to conversation history
     session.addMessage('assistant', fullResponse);
 
-    // Trigger TTS generation
-    await handleTTSGeneration(wsHandler, session, fullResponse);
+    // Trigger TTS generation if ttsClient is available
+    if (ttsClient) {
+      await handleTTSGeneration(wsHandler, session, fullResponse, ttsClient);
+    } else {
+      // No TTS client available, just transition to speaking state
+      console.log(`[Session ${session.id}] No TTS client available, skipping TTS`);
+      session.transition('llm_complete');
+      wsHandler.sendStateChange(session.getState());
+    }
 
   } catch (error) {
     console.error(`[Session ${session.id}] LLM processing error:`, error.message);
     wsHandler.sendError(`LLM processing failed: ${error.message}`, 'llm');
 
     // Try to recover to listening state
-    try {
-      if (session.getState() === 'thinking') {
-        session.transition('llm_complete');
-        wsHandler.sendStateChange(session.getState());
-      }
-    } catch (transitionError) {
-      console.error(`[Session ${session.id}] Failed to recover state:`, transitionError.message);
-    }
-  }
-}
-
-/**
- * Handle TTS generation after LLM completes
- * This is a placeholder for Task 24 implementation
- *
- * @param {WebSocketHandler} wsHandler - WebSocket handler
- * @param {SessionManager} session - Session manager
- * @param {string} text - Text to convert to speech
- */
-async function handleTTSGeneration(wsHandler, session, text) {
-  try {
-    console.log(`[Session ${session.id}] TTS generation triggered for text: "${text}"`);
-
-    // Skip TTS for empty responses
-    if (!text || text.trim() === '') {
-      console.log(`[Session ${session.id}] Skipping TTS for empty response`);
-      session.transition('llm_complete');
-      wsHandler.sendStateChange(session.getState());
-      return;
-    }
-
-    // Transition to speaking state
-    session.transition('llm_complete');
-    wsHandler.sendStateChange(session.getState());
-
-    console.log(`[Session ${session.id}] TTS placeholder - will be implemented in Task 24`);
-
-    // TODO: In Task 24, implement actual TTS processing:
-    // 1. Call TTS service to convert text to audio
-    // 2. Stream audio chunks to client
-    // 3. Handle TTS completion
-
-  } catch (error) {
-    console.error(`[Session ${session.id}] TTS generation error:`, error.message);
-
-    // Don't throw - just log and continue
-    // The LLM response is already sent, TTS is optional
     try {
       if (session.getState() === 'thinking') {
         session.transition('llm_complete');

@@ -15,8 +15,9 @@ const { processWithLLM } = require('./transcription');
  * @param {SessionManager} session - Session manager instance
  * @param {string} messageText - Text message from user
  * @param {LLMClient} llmClient - LLM service client
+ * @param {TTSClient} ttsClient - TTS service client (optional)
  */
-async function handleTextMessage(wsHandler, session, messageText, llmClient) {
+async function handleTextMessage(wsHandler, session, messageText, llmClient, ttsClient = null) {
   try {
     // Validate message text
     if (!messageText || typeof messageText !== 'string') {
@@ -63,7 +64,7 @@ async function handleTextMessage(wsHandler, session, messageText, llmClient) {
     console.log(`[Session ${session.id}] Starting LLM processing for text message`);
 
     // Process with LLM (shared logic with transcription handler)
-    await processWithLLM(wsHandler, session, llmClient);
+    await processWithLLM(wsHandler, session, llmClient, ttsClient);
 
   } catch (error) {
     console.error(`[Session ${session.id}] Text message handling error:`, error.message);

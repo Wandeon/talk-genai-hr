@@ -225,7 +225,7 @@ async function handleAudioChunk(session, wsHandler, data) {
     llmClient,
     // Callback to trigger LLM after transcription
     async (transcriptText) => {
-      await handleTranscription(wsHandler, session, transcriptText, llmClient);
+      await handleTranscription(wsHandler, session, transcriptText, llmClient, ttsClient);
     }
   );
 }
@@ -251,7 +251,7 @@ async function handleUserMessage(session, wsHandler, data) {
   console.log(`[Session ${session.id}] User message received: ${data.text}`);
 
   // Use the new text message handler
-  await handleTextMessage(wsHandler, session, data.text, llmClient);
+  await handleTextMessage(wsHandler, session, data.text, llmClient, ttsClient);
 }
 
 // Start server
