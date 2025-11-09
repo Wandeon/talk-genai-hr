@@ -70,7 +70,7 @@ describe('STTClient', () => {
         .toThrow('STT transcription failed: Network error');
     });
 
-    it('should handle API error responses', async () => {
+    it('should handle API error responses with status code', async () => {
       const audioBuffer = Buffer.from('fake audio data');
       const error = {
         response: {
@@ -83,7 +83,32 @@ describe('STTClient', () => {
 
       await expect(sttClient.transcribe(audioBuffer))
         .rejects
-        .toThrow('STT transcription failed: Invalid audio format');
+        .toThrow('STT transcription failed (400): Invalid audio format');
+    });
+
+    it('should handle service unreachable errors', async () => {
+      const audioBuffer = Buffer.from('fake audio data');
+      const error = {
+        request: {},
+        message: 'ECONNREFUSED'
+      };
+
+      axios.post.mockRejectedValue(error);
+
+      await expect(sttClient.transcribe(audioBuffer))
+        .rejects
+        .toThrow('STT service unreachable: ECONNREFUSED');
+    });
+
+    it('should handle request setup errors', async () => {
+      const audioBuffer = Buffer.from('fake audio data');
+      const error = new Error('Request configuration error');
+
+      axios.post.mockRejectedValue(error);
+
+      await expect(sttClient.transcribe(audioBuffer))
+        .rejects
+        .toThrow('STT transcription failed: Request configuration error');
     });
   });
 
@@ -117,6 +142,34 @@ describe('STTClient', () => {
       await expect(sttClient.checkHealth())
         .rejects
         .toThrow('STT health check failed: Service unavailable');
+    });
+
+    it('should handle health check with error response and status code', async () => {
+      const error = {
+        response: {
+          data: { error: 'Service degraded' },
+          status: 503
+        }
+      };
+
+      axios.get.mockRejectedValue(error);
+
+      await expect(sttClient.checkHealth())
+        .rejects
+        .toThrow('STT health check failed (503): Service degraded');
+    });
+
+    it('should handle health check unreachable errors', async () => {
+      const error = {
+        request: {},
+        message: 'ETIMEDOUT'
+      };
+
+      axios.get.mockRejectedValue(error);
+
+      await expect(sttClient.checkHealth())
+        .rejects
+        .toThrow('STT health check unreachable: ETIMEDOUT');
     });
   });
 });

@@ -37,8 +37,18 @@ class STTClient {
 
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.error || error.message;
-      throw new Error(`STT transcription failed: ${errorMessage}`);
+      if (error.response) {
+        // Server responded with error status
+        throw new Error(
+          `STT transcription failed (${error.response.status}): ${error.response.data?.error || error.message}`
+        );
+      } else if (error.request) {
+        // Request made but no response
+        throw new Error(`STT service unreachable: ${error.message}`);
+      } else {
+        // Error setting up request
+        throw new Error(`STT transcription failed: ${error.message}`);
+      }
     }
   }
 
@@ -57,8 +67,18 @@ class STTClient {
 
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.error || error.message;
-      throw new Error(`STT health check failed: ${errorMessage}`);
+      if (error.response) {
+        // Server responded with error status
+        throw new Error(
+          `STT health check failed (${error.response.status}): ${error.response.data?.error || error.message}`
+        );
+      } else if (error.request) {
+        // Request made but no response
+        throw new Error(`STT health check unreachable: ${error.message}`);
+      } else {
+        // Error setting up request
+        throw new Error(`STT health check failed: ${error.message}`);
+      }
     }
   }
 }
