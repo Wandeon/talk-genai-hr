@@ -8,6 +8,7 @@ const path = require('path');
 const http = require('http');
 const WebSocket = require('ws');
 require('dotenv').config();
+const db = require('./database');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,8 +17,9 @@ const PORT = process.env.PORT || 3001;
 
 // Service URLs (can be configured via environment variables)
 const STT_URL = process.env.STT_URL || 'http://100.89.2.111:5051';
-const LLM_URL = process.env.LLM_URL || 'http://100.89.2.111:11434';
+const LLM_URL = process.env.LLM_URL || 'http://100.100.47.43:11434';
 const TTS_URL = process.env.TTS_URL || 'http://100.89.2.111:5050';
+const VAD_URL = process.env.VAD_URL || 'http://localhost:5052';
 
 // Middleware
 app.use(cors());
@@ -75,6 +77,51 @@ app.get('/api/status', async (req, res) => {
   }
 });
 
+// Vision analysis with Llama 3.2 Vision
+app.post('/api/vision/analyze', upload.single('image'), async (req, res) => {
+  try {
+    const { prompt } = req.body;
+    const imagePath = req.file.path;
+
+    // Read image and convert to base64
+    const imageBuffer = fs.readFileSync(imagePath);
+    const base64Image = imageBuffer.toString('base64');
+
+    // Call Ollama with vision model
+    const response = await axios.post(`${LLM_URL}/api/chat`, {
+      model: 'llama3.2-vision',
+      messages: [
+        {
+          role: 'user',
+          content: prompt || 'Describe what you see in this image.',
+          images: [base64Image]
+        }
+      ],
+      stream: false
+    }, {
+      timeout: 60000
+    });
+
+    // Clean up uploaded file
+    fs.unlinkSync(imagePath);
+
+    res.json({
+      description: response.data.message.content,
+      model: 'llama3.2-vision'
+    });
+
+  } catch (error) {
+    console.error('Vision analysis error:', error.message);
+    if (req.file && req.file.path) {
+      fs.unlinkSync(req.file.path);
+    }
+    res.status(500).json({
+      error: 'Failed to analyze image',
+      message: error.message
+    });
+  }
+});
+
 // Serve static audio files from TTS service
 app.get('/api/audio/:filename', async (req, res) => {
   try {
@@ -94,8 +141,164 @@ app.get('/api/audio/:filename', async (req, res) => {
   }
 });
 
+// Database API endpoints
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+    const sessions = await db.getSessions(limit, offset);
+    res.json({ sessions });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/sessions/:id', async (req, res) => {
+  try {
+    const session = await db.getSession(req.params.id);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    res.json(session);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/sessions/:id/messages', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
+    const messages = await db.getMessages(req.params.id, limit, offset);
+    res.json({ messages });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/sessions/:id/stats', async (req, res) => {
+  try {
+    const stats = await db.getConversationStats(req.params.id);
+    res.json(stats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/messages/search', async (req, res) => {
+  try {
+    const query = req.query.q || '';
+    const limit = parseInt(req.query.limit) || 50;
+    const messages = await db.searchMessages(query, limit);
+    res.json({ messages });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Define available tools for function calling
+const tools = [
+  {
+    type: 'function',
+    function: {
+      name: 'get_current_time',
+      description: 'Get the current time and date',
+      parameters: {
+        type: 'object',
+        properties: {
+          timezone: {
+            type: 'string',
+            description: 'Timezone (e.g., America/New_York, Europe/London). Defaults to local time.'
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_weather',
+      description: 'Get current weather information for a location (simulated)',
+      parameters: {
+        type: 'object',
+        properties: {
+          location: {
+            type: 'string',
+            description: 'City name or location'
+          }
+        },
+        required: ['location']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'calculate',
+      description: 'Perform mathematical calculations',
+      parameters: {
+        type: 'object',
+        properties: {
+          expression: {
+            type: 'string',
+            description: 'Mathematical expression to evaluate (e.g., "2 + 2", "sqrt(16)")'
+          }
+        },
+        required: ['expression']
+      }
+    }
+  }
+];
+
+// Execute tool calls
+async function executeToolCall(toolName, args) {
+  console.log(`🔧 Executing tool: ${toolName} with args:`, args);
+
+  switch (toolName) {
+    case 'get_current_time':
+      const timezone = args.timezone || 'local';
+      const now = new Date();
+      return {
+        time: now.toLocaleTimeString(),
+        date: now.toLocaleDateString(),
+        timezone: timezone,
+        timestamp: now.toISOString()
+      };
+
+    case 'get_weather':
+      // Simulated weather data
+      const weathers = ['sunny', 'cloudy', 'rainy', 'partly cloudy'];
+      const temps = [65, 70, 75, 80, 85];
+      return {
+        location: args.location,
+        temperature: temps[Math.floor(Math.random() * temps.length)],
+        condition: weathers[Math.floor(Math.random() * weathers.length)],
+        humidity: Math.floor(Math.random() * 40) + 40,
+        note: 'This is simulated weather data'
+      };
+
+    case 'calculate':
+      try {
+        // Simple math evaluation (be careful with eval in production!)
+        const result = Function('"use strict"; return (' + args.expression + ')')();
+        return {
+          expression: args.expression,
+          result: result
+        };
+      } catch (error) {
+        return {
+          error: 'Invalid expression',
+          message: error.message
+        };
+      }
+
+    default:
+      return { error: 'Unknown tool' };
+  }
+}
+
 // WebSocket connection handler for continuous conversation
-wss.on('connection', (ws) => {
+wss.on('connection', async (ws) => {
   console.log('🔌 New conversation session started');
 
   // Session state
@@ -108,6 +311,17 @@ wss.on('connection', (ws) => {
     processingTimeout: null,
     silenceTimeout: null
   };
+
+  // Create database session
+  try {
+    await db.createSession(session.id, {
+      userAgent: ws.upgradeReq?.headers['user-agent'] || 'unknown',
+      ip: ws.upgradeReq?.socket.remoteAddress || 'unknown'
+    });
+    console.log(`📝 Database session created: ${session.id}`);
+  } catch (error) {
+    console.error('Failed to create database session:', error);
+  }
 
   // Send initial connection message
   ws.send(JSON.stringify({
@@ -290,6 +504,13 @@ async function processConversationTurn(ws, session) {
     // Add to conversation history
     session.conversationHistory.push({ role: 'user', content: userText });
 
+    // Log to database
+    try {
+      await db.addMessage(session.id, 'user', userText);
+    } catch (error) {
+      console.error('Failed to log user message:', error);
+    }
+
     // Send transcription to client
     ws.send(JSON.stringify({
       type: 'transcribed',
@@ -313,23 +534,180 @@ async function processConversationTurn(ws, session) {
       ...session.conversationHistory
     ];
 
+    // Stream LLM response with tool support
+    let aiText = '';
+    let toolCalls = [];
+
     const llmResponse = await axios.post(`${LLM_URL}/api/chat`, {
       model: process.env.LLM_MODEL || 'llama3.2',
       messages: messages,
-      stream: false
+      tools: tools,
+      stream: true
     }, {
-      timeout: 60000
+      timeout: 60000,
+      responseType: 'stream'
     });
 
-    const aiText = llmResponse.data.message.content;
+    // Process streaming response
+    llmResponse.data.on('data', (chunk) => {
+      const lines = chunk.toString().split('\n').filter(line => line.trim());
+
+      for (const line of lines) {
+        try {
+          const parsed = JSON.parse(line);
+
+          // Handle text content
+          if (parsed.message && parsed.message.content) {
+            const token = parsed.message.content;
+            aiText += token;
+
+            // Stream token to client
+            ws.send(JSON.stringify({
+              type: 'llm_token',
+              token: token,
+              role: 'assistant'
+            }));
+          }
+
+          // Handle tool calls
+          if (parsed.message && parsed.message.tool_calls) {
+            toolCalls = parsed.message.tool_calls;
+          }
+        } catch (e) {
+          // Ignore parsing errors for partial chunks
+        }
+      }
+    });
+
+    // Wait for stream to complete
+    await new Promise((resolve, reject) => {
+      llmResponse.data.on('end', resolve);
+      llmResponse.data.on('error', reject);
+    });
+
     console.log('🤖 AI response:', aiText.substring(0, 100) + '...');
 
-    // Add to conversation history
+    // Execute tool calls if any
+    if (toolCalls && toolCalls.length > 0) {
+      console.log(`🔧 Processing ${toolCalls.length} tool calls`);
+
+      for (const toolCall of toolCalls) {
+        const toolName = toolCall.function.name;
+        const toolArgs = typeof toolCall.function.arguments === 'string'
+          ? JSON.parse(toolCall.function.arguments)
+          : toolCall.function.arguments;
+
+        // Notify client about tool execution
+        ws.send(JSON.stringify({
+          type: 'tool_execution',
+          tool: toolName,
+          args: toolArgs
+        }));
+
+        // Execute the tool
+        const toolResult = await executeToolCall(toolName, toolArgs);
+
+        // Add tool call and result to conversation history
+        session.conversationHistory.push({
+          role: 'assistant',
+          content: aiText,
+          tool_calls: [toolCall]
+        });
+
+        session.conversationHistory.push({
+          role: 'tool',
+          name: toolName,
+          content: JSON.stringify(toolResult)
+        });
+
+        // Get AI's response after tool execution
+        const followUpMessages = [
+          {
+            role: 'system',
+            content: 'You are having a natural voice conversation. Keep responses concise and conversational. Respond as if speaking on the phone.'
+          },
+          ...session.conversationHistory
+        ];
+
+        let followUpText = '';
+
+        const followUpResponse = await axios.post(`${LLM_URL}/api/chat`, {
+          model: process.env.LLM_MODEL || 'llama3.2',
+          messages: followUpMessages,
+          stream: true
+        }, {
+          timeout: 60000,
+          responseType: 'stream'
+        });
+
+        followUpResponse.data.on('data', (chunk) => {
+          const lines = chunk.toString().split('\n').filter(line => line.trim());
+
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.message && parsed.message.content) {
+                const token = parsed.message.content;
+                followUpText += token;
+
+                ws.send(JSON.stringify({
+                  type: 'llm_token',
+                  token: token,
+                  role: 'assistant'
+                }));
+              }
+            } catch (e) {
+              // Ignore parsing errors
+            }
+          }
+        });
+
+        await new Promise((resolve, reject) => {
+          followUpResponse.data.on('end', resolve);
+          followUpResponse.data.on('error', reject);
+        });
+
+        aiText = followUpText;
+      }
+    }
+
+    // Add final response to conversation history
     session.conversationHistory.push({ role: 'assistant', content: aiText });
 
-    // Send AI response to client
+    // Log AI response to database
+    try {
+      const messageId = await db.addMessage(session.id, 'assistant', aiText);
+
+      // Log tool calls if any
+      if (toolCalls && toolCalls.length > 0) {
+        for (const toolCall of toolCalls) {
+          const toolName = toolCall.function.name;
+          const toolArgs = typeof toolCall.function.arguments === 'string'
+            ? JSON.parse(toolCall.function.arguments)
+            : toolCall.function.arguments;
+
+          // Find the tool result from session history
+          const toolResultMessage = session.conversationHistory.find(
+            msg => msg.role === 'tool' && msg.name === toolName
+          );
+
+          if (toolResultMessage) {
+            await db.addToolCall(
+              messageId,
+              toolName,
+              toolArgs,
+              JSON.parse(toolResultMessage.content)
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to log assistant message:', error);
+    }
+
+    // Send complete response confirmation
     ws.send(JSON.stringify({
-      type: 'ai_response',
+      type: 'ai_response_complete',
       text: aiText,
       role: 'assistant'
     }));
