@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useContext, useReducer, useMemo } from 'react';
 import conversationReducer, { initialState } from './conversationReducer';
 
 // Create the context
@@ -8,10 +8,13 @@ const ConversationContext = createContext(undefined);
 export const ConversationProvider = ({ children }) => {
   const [state, dispatch] = useReducer(conversationReducer, initialState);
 
-  const value = {
-    state,
-    dispatch,
-  };
+  const value = useMemo(
+    () => ({
+      state,
+      dispatch,
+    }),
+    [state]
+  );
 
   return (
     <ConversationContext.Provider value={value}>

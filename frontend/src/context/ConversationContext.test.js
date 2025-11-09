@@ -13,6 +13,8 @@ describe('conversationReducer', () => {
       isInterrupted: false,
       sessionId: null,
       isConnected: false,
+      error: null,
+      activeTool: null,
     });
   });
 
@@ -100,13 +102,26 @@ describe('conversationReducer', () => {
       isInterrupted: true,
       sessionId: 'session-123',
       isConnected: true,
+      error: { message: 'test error' },
+      activeTool: { toolName: 'test', args: {} },
     };
 
     const newState = conversationReducer(modifiedState, {
       type: 'RESET_CONVERSATION',
     });
 
-    expect(newState).toEqual(initialState);
+    // Should preserve connection state
+    expect(newState.isConnected).toBe(true);
+    expect(newState.sessionId).toBe('session-123');
+
+    // Should reset everything else
+    expect(newState.state).toBe('idle');
+    expect(newState.messages).toEqual([]);
+    expect(newState.currentTranscript).toBe('');
+    expect(newState.currentLLMResponse).toBe('');
+    expect(newState.isInterrupted).toBe(false);
+    expect(newState.error).toBe(null);
+    expect(newState.activeTool).toBe(null);
     expect(newState).not.toBe(modifiedState); // Check immutability
   });
 
@@ -148,6 +163,94 @@ describe('conversationReducer', () => {
     });
 
     expect(newState).toEqual(initialState);
+  });
+
+  it('should handle SET_ERROR', () => {
+    const error = { message: 'Connection failed', phase: 'transcription' };
+    const newState = conversationReducer(initialState, {
+      type: 'SET_ERROR',
+      payload: error,
+    });
+
+    expect(newState.error).toEqual(error);
+  });
+
+  it('should handle CLEAR_ERROR', () => {
+    const stateWithError = {
+      ...initialState,
+      error: { message: 'test error' },
+    };
+
+    const newState = conversationReducer(stateWithError, {
+      type: 'CLEAR_ERROR',
+    });
+
+    expect(newState.error).toBe(null);
+  });
+
+  it('should handle SET_ACTIVE_TOOL', () => {
+    const tool = {
+      toolName: 'weatherTool',
+      args: { location: 'San Francisco' },
+    };
+
+    const newState = conversationReducer(initialState, {
+      type: 'SET_ACTIVE_TOOL',
+      payload: tool,
+    });
+
+    expect(newState.activeTool).toEqual(tool);
+  });
+
+  it('should handle UPDATE_TOOL_RESULT', () => {
+    const stateWithTool = {
+      ...initialState,
+      activeTool: {
+        toolName: 'weatherTool',
+        args: { location: 'San Francisco' },
+      },
+    };
+
+    const result = { temperature: 72, conditions: 'sunny' };
+
+    const newState = conversationReducer(stateWithTool, {
+      type: 'UPDATE_TOOL_RESULT',
+      payload: result,
+    });
+
+    expect(newState.activeTool).toEqual({
+      toolName: 'weatherTool',
+      args: { location: 'San Francisco' },
+      result: { temperature: 72, conditions: 'sunny' },
+    });
+  });
+
+  it('should handle UPDATE_TOOL_RESULT when no active tool', () => {
+    const result = { data: 'test' };
+
+    const newState = conversationReducer(initialState, {
+      type: 'UPDATE_TOOL_RESULT',
+      payload: result,
+    });
+
+    expect(newState.activeTool).toBe(null);
+  });
+
+  it('should handle CLEAR_ACTIVE_TOOL', () => {
+    const stateWithTool = {
+      ...initialState,
+      activeTool: {
+        toolName: 'weatherTool',
+        args: { location: 'San Francisco' },
+        result: { temperature: 72 },
+      },
+    };
+
+    const newState = conversationReducer(stateWithTool, {
+      type: 'CLEAR_ACTIVE_TOOL',
+    });
+
+    expect(newState.activeTool).toBe(null);
   });
 });
 
@@ -271,28 +374,46 @@ describe('ConversationContext', () => {
   it('should reset conversation to initial state', () => {
     const { result } = renderHook(() => useConversation(), { wrapper });
 
-    // Modify state
+    // Modify state including connection state
     act(() => {
+      result.current.dispatch({ type: 'SET_CONNECTED', payload: true });
+      result.current.dispatch({
+        type: 'SET_SESSION_ID',
+        payload: 'session-789',
+      });
       result.current.dispatch({ type: 'SET_STATE', payload: 'speaking' });
       result.current.dispatch({
         type: 'ADD_MESSAGE',
         payload: { id: '1', role: 'user', content: 'test' },
       });
       result.current.dispatch({
-        type: 'SET_SESSION_ID',
-        payload: 'session-789',
+        type: 'SET_ERROR',
+        payload: { message: 'test error' },
       });
     });
 
     expect(result.current.state.state).toBe('speaking');
     expect(result.current.state.messages).toHaveLength(1);
+    expect(result.current.state.isConnected).toBe(true);
+    expect(result.current.state.sessionId).toBe('session-789');
 
     // Reset
     act(() => {
       result.current.dispatch({ type: 'RESET_CONVERSATION' });
     });
 
-    expect(result.current.state).toEqual(initialState);
+    // Connection state should be preserved
+    expect(result.current.state.isConnected).toBe(true);
+    expect(result.current.state.sessionId).toBe('session-789');
+
+    // Everything else should be reset
+    expect(result.current.state.state).toBe('idle');
+    expect(result.current.state.messages).toEqual([]);
+    expect(result.current.state.currentTranscript).toBe('');
+    expect(result.current.state.currentLLMResponse).toBe('');
+    expect(result.current.state.isInterrupted).toBe(false);
+    expect(result.current.state.error).toBe(null);
+    expect(result.current.state.activeTool).toBe(null);
   });
 
   it('should handle complex state transitions', () => {
