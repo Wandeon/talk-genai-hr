@@ -15,7 +15,18 @@ class VADClient {
       });
       return response.data;
     } catch (error) {
-      throw new Error(`VAD service error: ${error.message}`);
+      if (error.response) {
+        // Server responded with error status
+        throw new Error(
+          `VAD service error (${error.response.status}): ${error.response.data?.error || error.message}`
+        );
+      } else if (error.request) {
+        // Request made but no response
+        throw new Error(`VAD service unreachable: ${error.message}`);
+      } else {
+        // Error setting up request
+        throw new Error(`VAD service error: ${error.message}`);
+      }
     }
   }
 
@@ -24,7 +35,18 @@ class VADClient {
       const response = await this.axiosInstance.get('/health');
       return response.data;
     } catch (error) {
-      throw new Error(`VAD health check error: ${error.message}`);
+      if (error.response) {
+        // Server responded with error status
+        throw new Error(
+          `VAD health check error (${error.response.status}): ${error.response.data?.error || error.message}`
+        );
+      } else if (error.request) {
+        // Request made but no response
+        throw new Error(`VAD health check unreachable: ${error.message}`);
+      } else {
+        // Error setting up request
+        throw new Error(`VAD health check error: ${error.message}`);
+      }
     }
   }
 }

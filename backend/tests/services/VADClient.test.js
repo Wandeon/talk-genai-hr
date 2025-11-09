@@ -25,7 +25,8 @@ describe('VADClient', () => {
       const mockResponse = {
         data: {
           is_speech: true,
-          confidence: 0.95
+          probability: 0.95,
+          threshold: 0.5
         }
       };
 
@@ -45,7 +46,8 @@ describe('VADClient', () => {
       const mockResponse = {
         data: {
           is_speech: false,
-          confidence: 0.12
+          probability: 0.12,
+          threshold: 0.5
         }
       };
 
