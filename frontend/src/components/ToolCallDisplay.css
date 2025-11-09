@@ -1,0 +1,516 @@
+/* Tool Call Display Component Styling */
+
+.tool-call-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  margin: 0.5rem 0;
+  background: #f8f9fa;
+  border-left: 4px solid #2196f3;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Status-specific styling */
+.tool-call-display.executing {
+  background: #e3f2fd;
+  border-left-color: #2196f3;
+}
+
+.tool-call-display.completed {
+  background: #e8f5e9;
+  border-left-color: #4caf50;
+}
+
+.tool-call-display.error {
+  background: #ffebee;
+  border-left-color: #f44336;
+}
+
+/* Tool Call Header */
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tool-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.tool-name {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  word-break: break-word;
+}
+
+/* Status Badge */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.status-badge.executing {
+  background: #2196f3;
+  color: white;
+  animation: pulse-badge 1.5s ease-in-out infinite;
+}
+
+.status-badge.completed {
+  background: #4caf50;
+  color: white;
+}
+
+.status-badge.error {
+  background: #f44336;
+  color: white;
+}
+
+@keyframes pulse-badge {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Loading Spinner */
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.spinner-ring {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(33, 150, 243, 0.2);
+  border-top-color: #2196f3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Tool Call Body */
+.tool-call-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Expandable Section */
+.expandable-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.expand-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #2196f3;
+  transition: color 0.3s ease;
+}
+
+.expand-button:hover {
+  color: #1976d2;
+}
+
+.expand-button:focus {
+  outline: 2px solid #2196f3;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.expand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-weight: bold;
+  transition: transform 0.3s ease;
+}
+
+.tool-call-display.expanded .expand-icon {
+  transform: rotate(180deg);
+}
+
+.expand-label {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+
+/* Arguments Section */
+.arguments-section {
+  padding: 0.5rem 0;
+  margin-left: 1.5rem;
+}
+
+.arguments-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.argument-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.argument-label {
+  display: inline-block;
+  min-width: fit-content;
+  color: #555;
+  font-weight: 600;
+}
+
+.argument-value {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  word-break: break-word;
+  overflow-x: auto;
+}
+
+.empty-arguments {
+  padding: 0.5rem;
+  color: #999;
+  font-style: italic;
+  font-size: 0.875rem;
+}
+
+/* Value Formatting */
+.value-string {
+  color: #c41a16;
+}
+
+.value-number {
+  color: #0000ff;
+}
+
+.value-boolean {
+  color: #aa0d91;
+  font-weight: 600;
+}
+
+.value-boolean.value-true {
+  color: #008000;
+}
+
+.value-boolean.value-false {
+  color: #aa0d91;
+}
+
+.value-null {
+  color: #999;
+  font-style: italic;
+}
+
+.value-truncated {
+  color: #999;
+  font-size: 0.85em;
+  margin-left: 0.25rem;
+}
+
+/* Object and Array Formatting */
+.value-object,
+.value-array {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.bracket {
+  font-weight: bold;
+  color: #666;
+}
+
+.object-properties,
+.array-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-left: 1.5rem;
+}
+
+.object-property,
+.array-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.property-key {
+  color: #555;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.property-value {
+  display: flex;
+  flex-direction: column;
+  margin-left: 0.5rem;
+}
+
+.comma {
+  color: #666;
+  font-weight: bold;
+}
+
+/* Result Section */
+.result-section {
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.6);
+  border-left: 3px solid #4caf50;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}
+
+.result-section.error-section {
+  border-left-color: #f44336;
+  background: rgba(244, 67, 54, 0.05);
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.result-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #555;
+}
+
+.result-content {
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 4px;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  overflow-x: auto;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.error-message {
+  padding: 0.5rem;
+  background: rgba(244, 67, 54, 0.1);
+  border-radius: 4px;
+  color: #c41a16;
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Accessibility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Focus visible styles for accessibility */
+.expand-button:focus-visible {
+  outline: 2px solid #2196f3;
+  outline-offset: 2px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .tool-call-display {
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+  }
+
+  .tool-call-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tool-name {
+    font-size: 1rem;
+  }
+
+  .argument-item {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .argument-label {
+    min-width: auto;
+  }
+
+  .result-content {
+    font-size: 0.8rem;
+  }
+
+  .error-message {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .tool-call-display {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+
+  .tool-name {
+    font-size: 0.95rem;
+  }
+
+  .status-badge {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.65rem;
+  }
+
+  .expand-label {
+    font-size: 0.7rem;
+  }
+
+  .argument-item {
+    padding: 0.25rem;
+    font-size: 0.8rem;
+  }
+
+  .result-content,
+  .error-message {
+    font-size: 0.75rem;
+    padding: 0.25rem;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .tool-call-display {
+    transition: none;
+  }
+
+  .status-badge {
+    animation: none;
+  }
+
+  .spinner-ring {
+    animation: none;
+    border-top-color: #2196f3;
+  }
+
+  .expand-button {
+    transition: none;
+  }
+
+  .expand-icon {
+    transition: none;
+  }
+}
+
+/* Dark Mode Support (optional) */
+@media (prefers-color-scheme: dark) {
+  .tool-call-display {
+    background: #1e1e1e;
+    color: #e0e0e0;
+  }
+
+  .tool-call-display.executing {
+    background: #0d1b2a;
+    border-left-color: #64b5f6;
+  }
+
+  .tool-call-display.completed {
+    background: #0d2818;
+    border-left-color: #81c784;
+  }
+
+  .tool-call-display.error {
+    background: #2c0b0e;
+    border-left-color: #e57373;
+  }
+
+  .tool-name {
+    color: #e0e0e0;
+  }
+
+  .expand-button {
+    color: #64b5f6;
+  }
+
+  .expand-button:hover {
+    color: #90caf9;
+  }
+
+  .argument-item {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .argument-label {
+    color: #b0bec5;
+  }
+
+  .empty-arguments {
+    color: #666;
+  }
+
+  .result-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-left-color: #81c784;
+  }
+
+  .result-content {
+    background: rgba(255, 255, 255, 0.08);
+    color: #e0e0e0;
+  }
+
+  .error-message {
+    background: rgba(229, 115, 115, 0.1);
+    color: #ef9a9a;
+  }
+}
