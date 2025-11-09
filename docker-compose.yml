@@ -1,6 +1,45 @@
 version: '3.8'
 
 services:
+  # Silero VAD Service - Advanced Voice Activity Detection
+  vad-service:
+    build:
+      context: ./vad-service
+      dockerfile: Dockerfile
+    container_name: voice-chat-vad
+    ports:
+      - "5052:5052"
+    restart: unless-stopped
+    networks:
+      - voice-chat-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5052/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Streaming TTS Service - Parler-TTS for low-latency speech synthesis
+  streaming-tts:
+    build:
+      context: ./streaming-tts-service
+      dockerfile: Dockerfile
+    container_name: voice-chat-streaming-tts
+    ports:
+      - "5053:5053"
+    restart: unless-stopped
+    networks:
+      - voice-chat-network
+    volumes:
+      - tts-audio:/tmp/tts_audio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5053/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Backend API Server
   backend:
     build:
       context: ./backend
@@ -12,17 +51,25 @@ services:
       - PORT=3001
       - STT_URL=http://100.89.2.111:5051
       - LLM_URL=http://100.100.47.43:11434
-      - TTS_URL=http://100.89.2.111:5050
-      - LLM_MODEL=llama3:latest
+      - TTS_URL=http://streaming-tts:5053
+      - VAD_URL=http://vad-service:5052
+      - LLM_MODEL=llama3.2
+      - DB_PATH=/data/conversations.db
     restart: unless-stopped
     networks:
       - voice-chat-network
+    volumes:
+      - backend-data:/data
+    depends_on:
+      - vad-service
+      - streaming-tts
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
+  # Frontend React Application
   frontend:
     build:
       context: ./frontend
@@ -44,3 +91,9 @@ services:
 networks:
   voice-chat-network:
     driver: bridge
+
+volumes:
+  backend-data:
+    driver: local
+  tts-audio:
+    driver: local
