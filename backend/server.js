@@ -22,6 +22,9 @@ const SessionManager = require('./lib/SessionManager');
 const WebSocketHandler = require('./lib/WebSocketHandler');
 const database = require('./database');
 
+// Import handlers
+const { handleAudioChunk: handleAudioChunkWithVAD, cleanupSession } = require('./lib/handlers/audioChunk');
+
 // Configuration
 const PORT = process.env.PORT || 3001;
 const VAD_URL = process.env.VAD_URL || 'http://localhost:5052';
@@ -176,6 +179,8 @@ wss.on('connection', async (ws, req) => {
   // Close handler
   ws.on('close', () => {
     console.log(`[Session ${sessionId}] WebSocket connection closed`);
+    // Clean up session-specific data
+    cleanupSession(sessionId);
   });
 
   // Error handler
@@ -207,15 +212,8 @@ async function handleStopConversation(session, wsHandler, data) {
 }
 
 async function handleAudioChunk(session, wsHandler, data) {
-  console.log(`[Session ${session.id}] Received audio chunk (stub)`);
-
-  // Add audio chunk to session
-  const audioBuffer = Buffer.from(data.audio, 'base64');
-  session.addAudioChunk(audioBuffer);
-
-  console.log(`[Session ${session.id}] Audio chunks buffered: ${session.audioChunks.length}`);
-
-  // TODO: Implement VAD detection and automatic processing
+  // Use the new VAD-based audio chunk handler
+  await handleAudioChunkWithVAD(wsHandler, session, data.audio, vadClient, sttClient);
 }
 
 async function handleInterrupt(session, wsHandler, data) {
