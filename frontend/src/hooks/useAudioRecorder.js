@@ -13,6 +13,7 @@ const useAudioRecorder = (sendAudioChunk) => {
   const mediaStreamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const sendAudioChunkRef = useRef(sendAudioChunk);
+  const mountedRef = useRef(true);
 
   // Keep sendAudioChunk ref up to date
   useEffect(() => {
@@ -30,8 +31,9 @@ const useAudioRecorder = (sendAudioChunk) => {
       }
 
       try {
+        // Only check permission, don't keep stream
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaStreamRef.current = stream;
+        stream.getTracks().forEach(track => track.stop()); // Immediately stop
         setHasPermission(true);
         setPermissionError(null);
       } catch (error) {
@@ -53,6 +55,7 @@ const useAudioRecorder = (sendAudioChunk) => {
 
     // Cleanup on unmount
     return () => {
+      mountedRef.current = false;
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
@@ -73,10 +76,21 @@ const useAudioRecorder = (sendAudioChunk) => {
   };
 
   // Start recording
-  const startRecording = useCallback(() => {
-    if (!hasPermission || !mediaStreamRef.current) {
-      console.warn('Cannot start recording: Permission not granted or stream not available');
+  const startRecording = useCallback(async () => {
+    if (!hasPermission) {
+      console.warn('Cannot start recording: Permission not granted');
       return;
+    }
+
+    // Request fresh stream when recording starts
+    if (!mediaStreamRef.current) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+      } catch (error) {
+        console.error('Error getting media stream for recording:', error);
+        return;
+      }
     }
 
     try {
@@ -96,10 +110,11 @@ const useAudioRecorder = (sendAudioChunk) => {
 
       // Handle data available event (audio chunks)
       mediaRecorder.ondataavailable = async (event) => {
-        if (event.data && event.data.size > 0) {
+        if (event.data && event.data.size > 0 && mountedRef.current) {
           try {
             const base64Data = await blobToBase64(event.data);
-            sendAudioChunkRef.current(base64Data);
+            const base64Only = base64Data.split(',')[1]; // Strip "data:audio/webm;base64,"
+            sendAudioChunkRef.current(base64Only);
           } catch (error) {
             console.error('Error converting audio chunk to base64:', error);
           }

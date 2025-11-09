@@ -306,9 +306,13 @@ describe('useAudioRecorder', () => {
         expect(sendAudioChunk).toHaveBeenCalled();
       }, { timeout: 200 });
 
-      // Check that the chunk is in the correct format
+      // Check that the chunk is base64 string only (no data URI prefix)
       expect(sendAudioChunk).toHaveBeenCalledWith(
-        expect.stringMatching(/^data:audio\/webm;base64,/)
+        expect.stringMatching(/^[A-Za-z0-9+/=]+$/)
+      );
+      // Verify it does NOT contain the data URI prefix
+      expect(sendAudioChunk).not.toHaveBeenCalledWith(
+        expect.stringMatching(/^data:/)
       );
     });
 
@@ -391,16 +395,32 @@ describe('useAudioRecorder', () => {
     it('should clean up media stream on unmount', async () => {
       const sendAudioChunk = jest.fn();
 
-      const { unmount } = renderHook(() => useAudioRecorder(sendAudioChunk));
+      const { result, unmount } = renderHook(() => useAudioRecorder(sendAudioChunk));
 
       await waitFor(() => {
         expect(mockGetUserMedia).toHaveBeenCalled();
       });
 
+      // Start recording to create a new stream (permission check stream is already stopped)
+      await waitFor(() => {
+        expect(result.current.hasPermission).toBe(true);
+      });
+
+      act(() => {
+        result.current.startRecording();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isRecording).toBe(true);
+      });
+
+      // Get the stream created for recording
+      const recordingStream = mockMediaStream;
+
       unmount();
 
       // Verify cleanup
-      expect(mockMediaStream.tracks[0].stop).toHaveBeenCalled();
+      expect(recordingStream.tracks[0].stop).toHaveBeenCalled();
     });
   });
 
