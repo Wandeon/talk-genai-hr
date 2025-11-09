@@ -3,6 +3,6 @@ flask-cors==4.0.0
 torch==2.1.0
 torchaudio==2.1.0
 transformers==4.35.0
-parler-tts==0.1.0
+parler-tts==0.2.3
 numpy==1.24.3
 accelerate==0.24.0
