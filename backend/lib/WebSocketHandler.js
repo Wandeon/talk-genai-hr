@@ -28,7 +28,13 @@ class WebSocketHandler {
    */
   send(message) {
     if (this.ws.readyState === 1) { // OPEN
-      this.ws.send(JSON.stringify(message));
+      try {
+        this.ws.send(JSON.stringify(message));
+      } catch (error) {
+        console.error(`[Session ${this.sessionId}] Failed to send message:`, error.message);
+        console.error('Message type:', message.type);
+        // Don't re-throw - just log and continue
+      }
     }
   }
 

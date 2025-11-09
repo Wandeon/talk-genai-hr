@@ -277,4 +277,72 @@ describe('WebSocketHandler', () => {
       expect(mockWs.send).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('Error handling', () => {
+    let consoleErrorSpy;
+
+    beforeEach(() => {
+      consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleErrorSpy.mockRestore();
+    });
+
+    test('should handle JSON.stringify errors gracefully', () => {
+      // Create a circular reference object that will cause JSON.stringify to throw
+      const circularObj = { type: 'test' };
+      circularObj.self = circularObj;
+
+      // This should not throw, but should log the error
+      expect(() => {
+        handler.send(circularObj);
+      }).not.toThrow();
+
+      // Verify error was logged
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[Session test-session-123] Failed to send message:'),
+        expect.any(String)
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Message type:', 'test');
+    });
+
+    test('should handle ws.send() errors gracefully', () => {
+      // Mock ws.send to throw an error
+      mockWs.send.mockImplementation(() => {
+        throw new Error('Network error');
+      });
+
+      // This should not throw, but should log the error
+      expect(() => {
+        handler.sendStateChange('idle');
+      }).not.toThrow();
+
+      // Verify error was logged
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[Session test-session-123] Failed to send message:'),
+        'Network error'
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Message type:', 'state_change');
+    });
+
+    test('should continue processing after send error', () => {
+      // Make first call fail
+      mockWs.send.mockImplementationOnce(() => {
+        throw new Error('Temporary error');
+      });
+
+      // First call should log error but not throw
+      handler.sendStateChange('idle');
+      expect(consoleErrorSpy).toHaveBeenCalled();
+
+      // Reset spy
+      consoleErrorSpy.mockClear();
+
+      // Second call should work normally
+      handler.sendStateChange('processing_speech');
+      expect(mockWs.send).toHaveBeenCalledTimes(2);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+  });
 });
