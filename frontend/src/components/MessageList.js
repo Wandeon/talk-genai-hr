@@ -25,9 +25,14 @@ function MessageList() {
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (messagesEndRef.current && messagesEndRef.current.scrollIntoView) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    const scrollToBottom = () => {
+      if (messagesEndRef.current?.scrollIntoView) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+
+    const rafId = requestAnimationFrame(scrollToBottom);
+    return () => cancelAnimationFrame(rafId);
   }, [messages, currentLLMResponse, currentTranscript]);
 
   // Format timestamp for display
@@ -44,12 +49,13 @@ function MessageList() {
   };
 
   // Render a single message
-  const renderMessage = (message) => {
+  const renderMessage = (message, index) => {
     const { id, role, content, timestamp, type, duration } = message;
+    const safeId = id || `msg-${timestamp}-${index}`;
 
     return (
       <div
-        key={id}
+        key={safeId}
         className={`message message-${role} message-type-${type}`}
         role="article"
         aria-label={`${role} message`}
