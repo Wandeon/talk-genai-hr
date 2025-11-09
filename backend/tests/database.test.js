@@ -8,6 +8,10 @@ describe('Database', () => {
     }
   });
 
+  afterEach(async () => {
+    await db.close();
+  });
+
   test('should initialize database with correct schema', async () => {
     await db.initialize('/tmp/test.db');
 
@@ -25,5 +29,13 @@ describe('Database', () => {
     expect(sessionId).toBeTruthy();
     const session = await db.getSession(sessionId);
     expect(session.id).toBe(sessionId);
+  });
+
+  test('should close database connection', async () => {
+    await db.initialize('/tmp/test.db');
+    await db.close();
+
+    // Calling close again should not throw
+    await expect(db.close()).resolves.not.toThrow();
   });
 });
