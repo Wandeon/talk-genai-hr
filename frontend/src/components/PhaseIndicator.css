@@ -1,0 +1,448 @@
+/* Phase Indicator Wrapper */
+.phase-indicator-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: #f5f5f5;
+  transition: all 0.3s ease;
+  min-height: 120px;
+  position: relative;
+}
+
+/* Phase-specific styling */
+.phase-indicator-wrapper.phase-idle {
+  background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+  border: 2px solid #e0e0e0;
+}
+
+.phase-indicator-wrapper.phase-listening {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border: 2px solid #90caf9;
+}
+
+.phase-indicator-wrapper.phase-transcribing {
+  background: linear-gradient(135deg, #fff3e0 0%, #fce4ec 100%);
+  border: 2px solid #ffb74d;
+}
+
+.phase-indicator-wrapper.phase-thinking {
+  background: linear-gradient(135deg, #f0f4c3 0%, #dcedc8 100%);
+  border: 2px solid #aed581;
+}
+
+.phase-indicator-wrapper.phase-speaking {
+  background: linear-gradient(135deg, #c8e6c9 0%, #b2dfdb 100%);
+  border: 2px solid #81c784;
+}
+
+/* Phase Content Container */
+.phase-indicator-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  width: 100%;
+}
+
+/* Icon styling */
+.phase-indicator-icon {
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+  line-height: 1;
+}
+
+/* Text styling */
+.phase-indicator-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.phase-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #333;
+  letter-spacing: 0.5px;
+}
+
+.phase-description {
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 400;
+}
+
+/* Animation Container */
+.phase-indicator-animation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  height: 80px;
+}
+
+/* ============================================
+   IDLE Animation - Static indicator dot
+   ============================================ */
+
+.indicator-idle .indicator-dot {
+  width: 12px;
+  height: 12px;
+  background: #999;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ============================================
+   LISTENING Animation - Waveform
+   ============================================ */
+
+.waveform-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  height: 50px;
+}
+
+.waveform-bar {
+  width: 6px;
+  height: 20px;
+  background: #2196f3;
+  border-radius: 3px;
+  animation: waveform-pulse 0.6s ease-in-out infinite;
+}
+
+.waveform-bar:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.waveform-bar:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.waveform-bar:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.waveform-bar:nth-child(4) {
+  animation-delay: 0.1s;
+}
+
+@keyframes waveform-pulse {
+  0%, 100% {
+    height: 20px;
+    opacity: 0.5;
+  }
+  50% {
+    height: 50px;
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   TRANSCRIBING Animation - Horizontal bars
+   ============================================ */
+
+.bars-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.bars-loader .bar {
+  width: 4px;
+  height: 35px;
+  background: #ff9800;
+  border-radius: 2px;
+  animation: bar-loading 1.4s ease-in-out infinite;
+}
+
+.bars-loader .bar:nth-child(1) {
+  animation-delay: -0.8s;
+}
+
+.bars-loader .bar:nth-child(2) {
+  animation-delay: -0.4s;
+}
+
+.bars-loader .bar:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes bar-loading {
+  0%, 80%, 100% {
+    height: 35px;
+    opacity: 0.5;
+  }
+  40% {
+    height: 50px;
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   THINKING Animation - Rotating dots spinner
+   ============================================ */
+
+.spinner-container {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #4caf50;
+  border-radius: 50%;
+  animation: spinner-orbit 1.5s linear infinite;
+}
+
+.spinner-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.spinner-dot:nth-child(2) {
+  animation-delay: -0.5s;
+}
+
+.spinner-dot:nth-child(3) {
+  animation-delay: -1s;
+}
+
+@keyframes spinner-orbit {
+  0% {
+    transform: translateX(20px) translateY(0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateX(0) translateY(-20px) scale(0.8);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateX(-20px) translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   SPEAKING Animation - Equalizer bars
+   ============================================ */
+
+.equalizer-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  height: 60px;
+}
+
+.equalizer-bar {
+  width: 5px;
+  background: #4caf50;
+  border-radius: 2px;
+  animation: equalizer-bounce 0.6s ease-in-out infinite;
+}
+
+.equalizer-bar:nth-child(1) {
+  height: 15px;
+  animation-delay: 0s;
+}
+
+.equalizer-bar:nth-child(2) {
+  height: 25px;
+  animation-delay: 0.1s;
+}
+
+.equalizer-bar:nth-child(3) {
+  height: 35px;
+  animation-delay: 0.2s;
+}
+
+.equalizer-bar:nth-child(4) {
+  height: 25px;
+  animation-delay: 0.1s;
+}
+
+.equalizer-bar:nth-child(5) {
+  height: 15px;
+  animation-delay: 0s;
+}
+
+@keyframes equalizer-bounce {
+  0%, 100% {
+    transform: scaleY(0.7);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+@media (max-width: 768px) {
+  .phase-indicator-wrapper {
+    padding: 1rem;
+    min-height: 100px;
+  }
+
+  .phase-indicator-content {
+    gap: 1.5rem;
+  }
+
+  .phase-indicator-icon {
+    font-size: 2rem;
+  }
+
+  .phase-name {
+    font-size: 1.1rem;
+  }
+
+  .phase-description {
+    font-size: 0.8rem;
+  }
+
+  .phase-indicator-animation {
+    min-width: 60px;
+    height: 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .phase-indicator-wrapper {
+    padding: 0.75rem;
+    min-height: 80px;
+  }
+
+  .phase-indicator-content {
+    gap: 1rem;
+    flex-direction: column;
+  }
+
+  .phase-indicator-icon {
+    font-size: 1.75rem;
+  }
+
+  .phase-indicator-text {
+    align-items: center;
+  }
+
+  .phase-name {
+    font-size: 1rem;
+  }
+
+  .phase-description {
+    font-size: 0.75rem;
+  }
+
+  .phase-indicator-animation {
+    min-width: 50px;
+    height: 50px;
+  }
+
+  .waveform-container {
+    gap: 3px;
+  }
+
+  .waveform-bar {
+    width: 4px;
+    height: 15px;
+  }
+
+  .bars-loader .bar {
+    width: 3px;
+    height: 25px;
+  }
+
+  .equalizer-bar {
+    width: 4px;
+  }
+
+  .equalizer-container {
+    gap: 3px;
+  }
+}
+
+/* ============================================
+   Accessibility - Reduced Motion Support
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .phase-indicator-wrapper {
+    transition: none;
+  }
+
+  /* Disable all animations */
+  .waveform-bar,
+  .bars-loader .bar,
+  .spinner-dot,
+  .equalizer-bar {
+    animation: none;
+  }
+
+  /* Static fallback for listening state */
+  .indicator-listening .waveform-bar {
+    height: 35px;
+    opacity: 0.7;
+  }
+
+  /* Static fallback for transcribing state */
+  .bars-loader .bar {
+    height: 42px;
+    opacity: 0.7;
+  }
+
+  /* Static fallback for thinking state */
+  .spinner-dot {
+    position: static;
+    display: inline-block;
+    margin: 0 4px;
+    transform: none !important;
+    opacity: 0.7 !important;
+  }
+
+  /* Static fallback for speaking state */
+  .indicator-speaking .equalizer-bar {
+    transform: scaleY(0.85);
+    opacity: 0.7;
+  }
+}
+
+/* ============================================
+   Color Utilities by Phase
+   ============================================ */
+
+.indicator-idle {
+  color: #999;
+}
+
+.indicator-listening {
+  color: #2196f3;
+}
+
+.indicator-transcribing {
+  color: #ff9800;
+}
+
+.indicator-thinking {
+  color: #4caf50;
+}
+
+.indicator-speaking {
+  color: #4caf50;
+}
